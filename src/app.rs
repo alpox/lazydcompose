@@ -1,6 +1,6 @@
 use crate::{
     cmd::{Cmd},
-    event::{Event, EventHandler, Message},
+    event::{EventHandler, Message},
     model::{Model, RunningState},
     subs::{Sub},
     tea,
@@ -46,24 +46,13 @@ impl App {
     pub async fn run(mut self, mut terminal: DefaultTerminal) -> color_eyre::Result<()> {
         self.update_subscriptions();
         self.process_subscriptions();
+        self.process_keyboard_events();
 
         while self.model.running_state != RunningState::Done {
             terminal.draw(|frame| frame.render_widget(&self.model, frame.area()))?;
 
-            match self.events.next().await? {
-                Event::Tick => self.events.send(Message::Tick),
-                Event::Crossterm(event) => match event {
-                    crossterm::event::Event::Key(key_event)
-                        if key_event.kind == crossterm::event::KeyEventKind::Press =>
-                    {
-                        self.handle_key_events(key_event)?
-                    }
-                    _ => {}
-                },
-                Event::App(app_event) => {
-                    self.handle_message(app_event);
-                }
-            }
+            let msg = self.events.next().await?;
+            self.handle_message(msg);
         }
 
         Ok(())
@@ -98,7 +87,7 @@ impl App {
 
         tokio::spawn(async move {
             let msg = cmd.exec(&model).await;
-            let _ = sender.send(Event::App(msg));
+            let _ = sender.send(msg);
         });
     }
 
@@ -109,7 +98,19 @@ impl App {
         tokio::spawn(async move {
             loop {
                 while let Some(msg) = sub_stream.next().await {
-                    let _ = sender.send(Event::App(msg));
+                    let _ = sender.send(msg);
+                }
+            }
+        });
+    }
+
+    fn process_keyboard_events(&self) {
+        let sender = self.events.sender();
+        tokio::spawn(async move {
+            let mut reader = crossterm::event::EventStream::new();
+            while let Some(Ok(evt)) = reader.next().await {
+                if let crossterm::event::Event::Key(key) = evt {
+                    let _ = sender.send(Message::KeyPress(key));
                 }
             }
         });
