@@ -17,6 +17,8 @@ pub enum Message {
     /// Refresh the project list.
     RefreshProjects,
     
+    Up,
+    Down,
     Projects(Result<Vec<Project>, ()>),
     KeyPress(KeyEvent)
 }

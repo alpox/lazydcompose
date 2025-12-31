@@ -5,10 +5,7 @@ use crate::{
     subs::{Sub},
     tea,
 };
-use ratatui::{
-    DefaultTerminal,
-    crossterm::event::{KeyCode, KeyEvent, KeyModifiers},
-};
+use ratatui::DefaultTerminal;
 use tokio_stream::StreamExt;
 
 /// Application.
@@ -22,14 +19,8 @@ pub struct App {
 
 impl Default for App {
     fn default() -> Self {
-        let model = Model {
-            running_state: RunningState::Running,
-            counter: 0,
-            projects: vec![],
-        };
-
         Self {
-            model,
+            model: Model::default(),
             events: EventHandler::new(),
             sub: Sub::new(),
         }
@@ -49,7 +40,7 @@ impl App {
         self.process_keyboard_events();
 
         while self.model.running_state != RunningState::Done {
-            terminal.draw(|frame| frame.render_widget(&self.model, frame.area()))?;
+            let _ = terminal.draw(|frame| tea::view(&mut self.model, frame));
 
             let msg = self.events.next().await?;
             self.handle_message(msg);
@@ -114,20 +105,5 @@ impl App {
                 }
             }
         });
-    }
-
-    /// Handles the key events and updates the state of [`App`].
-    pub fn handle_key_events(&mut self, key_event: KeyEvent) -> color_eyre::Result<()> {
-        match key_event.code {
-            KeyCode::Esc | KeyCode::Char('q') => self.events.send(Message::Quit),
-            KeyCode::Char('c' | 'C') if key_event.modifiers == KeyModifiers::CONTROL => {
-                self.events.send(Message::Quit)
-            }
-            KeyCode::Right => self.events.send(Message::Increment),
-            KeyCode::Left => self.events.send(Message::Decrement),
-            // Other handlers you could add here.
-            _ => {}
-        }
-        Ok(())
     }
 }

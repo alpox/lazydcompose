@@ -2,7 +2,6 @@ use crate::{log::initialize_logging, app::App};
 
 pub mod app;
 pub mod event;
-pub mod ui;
 pub mod cli;
 pub mod subs;
 pub mod log;
