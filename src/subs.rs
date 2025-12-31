@@ -4,10 +4,10 @@ use futures::{
     Stream, StreamExt,
     stream::{self, select_all},
 };
-use tokio::sync::{
+use tokio::{sync::{
     Mutex,
     mpsc::{UnboundedReceiver, UnboundedSender, unbounded_channel},
-};
+}};
 use tokio_stream::wrappers::{IntervalStream, UnboundedReceiverStream};
 
 #[derive(Eq, PartialEq, Clone, Debug)]

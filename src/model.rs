@@ -1,8 +1,20 @@
-use ratatui::widgets::ListState;
+use crate::{event::Message, tea::BoxedCmd};
 
-use crate::cli::Project;
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
+pub enum PanelId {
+    #[default]
+    Projects,
+    Containers,
+    Logs,
+}
 
-const PROJECT_PANEL: &str = "projects";
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
+pub enum PanelSize {
+    #[default]
+    Normal,
+    Expanded,
+    Collapsed,
+}
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub enum RunningState {
@@ -11,39 +23,9 @@ pub enum RunningState {
     Done,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct ProjectsPanel {
-    pub name: String,
-    pub projects: Vec<Project>,
-    pub list_state: ListState,
+pub enum UpdateResult {
+    None,
+    Msg(Message),
+    Cmd(BoxedCmd),
+    MsgAndCmd(Message, BoxedCmd)
 }
-
-impl Default for ProjectsPanel {
-    fn default() -> Self {
-        Self {
-            name: PROJECT_PANEL.to_string(),
-            list_state: ListState::default(),
-            projects: vec![],
-        }
-    }
-}
-
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct Model {
-    pub running_state: RunningState,
-    pub counter: u8,
-    pub projects_panel: ProjectsPanel,
-    pub current_panel: String,
-}
-
-impl Default for Model {
-    fn default() -> Self {
-        Self {
-            running_state: RunningState::Running,
-            counter: 0,
-            current_panel: PROJECT_PANEL.to_string(),
-            projects_panel: ProjectsPanel::default(),
-        }
-    }
-}
-

@@ -1,9 +1,9 @@
 use crate::{
-    cmd::{Cmd},
+    cmd::Cmd,
     event::{EventHandler, Message},
-    model::{Model, RunningState},
-    subs::{Sub},
-    tea,
+    model::{RunningState, UpdateResult},
+    subs::Sub,
+    tea::{self, Model},
 };
 use ratatui::DefaultTerminal;
 use tokio_stream::StreamExt;
@@ -54,11 +54,17 @@ impl App {
         let mut current_msg = Some(msg);
 
         while current_msg.is_some() {
-            let (next_msg, next_cmd) = tea::update(&mut self.model, current_msg.unwrap());
-            current_msg = next_msg;
-
-            if let Some(cmd) = next_cmd {
-                self.run_cmd(cmd);
+            match tea::update(&mut self.model, current_msg.unwrap()) {
+                UpdateResult::None => current_msg = None,
+                UpdateResult::Msg(msg) => current_msg = Some(msg),
+                UpdateResult::Cmd(cmd) => {
+                    current_msg = None;
+                    self.run_cmd(cmd)
+                }
+                UpdateResult::MsgAndCmd(msg, cmd) => {
+                    current_msg = Some(msg);
+                    self.run_cmd(cmd);
+                }
             }
 
             self.update_subscriptions();

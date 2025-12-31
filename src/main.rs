@@ -8,6 +8,7 @@ pub mod log;
 pub mod cmd;
 pub mod tea;
 pub mod model;
+pub mod panels;
 
 #[tokio::main]
 async fn main() -> color_eyre::Result<()> {

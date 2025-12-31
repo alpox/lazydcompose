@@ -11,19 +11,48 @@ use crate::{
     cli::Project,
     cmd::{Cmd, DockerComposeLsCommand},
     event::Message,
-    model::{Model, RunningState},
+    model::{PanelId, RunningState, UpdateResult},
+    panels::projects::{self, ProjectsPanel},
     subs::Subscription,
 };
 use std::{cmp::min, time::Duration};
 
-type BoxedCmd = Box<dyn Cmd<Model, Message>>;
+pub type BoxedCmd = Box<dyn Cmd<Model, Message>>;
 
-pub fn update(model: &mut Model, msg: Message) -> (Option<Message>, Option<BoxedCmd>) {
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Model {
+    pub running_state: RunningState,
+    pub counter: u8,
+    pub projects_panel: ProjectsPanel,
+    pub active_panel: PanelId,
+}
+
+impl Default for Model {
+    fn default() -> Self {
+        Self {
+            running_state: RunningState::Running,
+            counter: 0,
+            active_panel: PanelId::default(),
+            projects_panel: ProjectsPanel::default(),
+        }
+    }
+}
+
+pub fn update(model: &mut Model, msg: Message) -> UpdateResult {
     match msg {
-        Message::Increment => model.counter = model.counter.saturating_add(1),
-        Message::Decrement => model.counter = model.counter.saturating_sub(1),
-        Message::Quit => model.running_state = RunningState::Done,
-        Message::RefreshProjects => return (None, Some(Box::new(DockerComposeLsCommand {}))),
+        Message::Increment => {
+            model.counter = model.counter.saturating_add(1);
+            UpdateResult::None
+        }
+        Message::Decrement => {
+            model.counter = model.counter.saturating_sub(1);
+            UpdateResult::None
+        }
+        Message::Quit => {
+            model.running_state = RunningState::Done;
+            UpdateResult::None
+        }
+        Message::RefreshProjects => UpdateResult::Cmd(Box::new(DockerComposeLsCommand {})),
         Message::Projects(Ok(projects)) => {
             model.projects_panel.list_state.select(
                 match (model.projects_panel.list_state.selected(), projects.len()) {
@@ -33,29 +62,31 @@ pub fn update(model: &mut Model, msg: Message) -> (Option<Message>, Option<Boxed
                 },
             );
             model.projects_panel.projects = projects;
+            UpdateResult::None
         }
-        Message::Projects(Err(_)) => {}
-        Message::Tick => {}
-        Message::KeyPress(key) => return map_key_to_message(key),
-        Message::Up => model.projects_panel.list_state.select_previous(),
-        Message::Down => model.projects_panel.list_state.select_next(),
-    }
+        Message::Projects(Err(_)) => UpdateResult::None,
+        Message::Tick => UpdateResult::None,
+        Message::KeyPress(key) => map_key_to_message(key),
 
-    (None, None)
+        msg => match model.active_panel {
+            PanelId::Projects => projects::update(&mut model.projects_panel, msg),
+            _ => UpdateResult::None,
+        },
+    }
 }
 
-fn map_key_to_message(key: KeyEvent) -> (Option<Message>, Option<BoxedCmd>) {
+fn map_key_to_message(key: KeyEvent) -> UpdateResult {
     match key.code {
-        KeyCode::Esc | KeyCode::Char('q') => (Some(Message::Quit), None),
+        KeyCode::Esc | KeyCode::Char('q') => UpdateResult::Msg(Message::Quit),
         KeyCode::Char('c' | 'C') if key.modifiers == KeyModifiers::CONTROL => {
-            (Some(Message::Quit), None)
+            UpdateResult::Msg(Message::Quit)
         }
-        KeyCode::Right => (Some(Message::Increment), None),
-        KeyCode::Left => (Some(Message::Decrement), None),
-        KeyCode::Up | KeyCode::Char('k') => (Some(Message::Up), None),
-        KeyCode::Down | KeyCode::Char('j') => (Some(Message::Down), None),
+        KeyCode::Right => UpdateResult::Msg(Message::Increment),
+        KeyCode::Left => UpdateResult::Msg(Message::Decrement),
+        KeyCode::Up | KeyCode::Char('k') => UpdateResult::Msg(Message::Up),
+        KeyCode::Down | KeyCode::Char('j') => UpdateResult::Msg(Message::Down),
         // Other handlers you could add here.
-        _ => (None, None),
+        _ => UpdateResult::None,
     }
 }
 
