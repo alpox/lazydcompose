@@ -2,7 +2,7 @@ use crate::{
     cmd::Cmd,
     event::{EventHandler, Message},
     model::{RunningState, UpdateResult},
-    subs::Sub,
+    sub::Sub,
     tea::{self, Model},
 };
 use ratatui::DefaultTerminal;
@@ -78,12 +78,11 @@ impl App {
         self.sub.update(sub);
     }
 
-    fn run_cmd(&self, cmd: Box<dyn Cmd<Model, Message>>) {
+    fn run_cmd(&self, cmd: Box<dyn Cmd<Message>>) {
         let sender = self.events.sender();
-        let model = self.model.clone();
 
         tokio::spawn(async move {
-            let msg = cmd.exec(&model).await;
+            let msg = cmd.exec().await;
             let _ = sender.send(msg);
         });
     }

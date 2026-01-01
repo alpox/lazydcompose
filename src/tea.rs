@@ -9,15 +9,11 @@ use ratatui::{
 
 use crate::{
     cli::Project,
-    cmd::{Cmd, DockerComposeLsCommand},
     event::Message,
     model::{PanelId, RunningState, UpdateResult},
     panels::projects::{self, ProjectsPanel},
     subs::Subscription,
 };
-use std::{cmp::min, time::Duration};
-
-pub type BoxedCmd = Box<dyn Cmd<Model, Message>>;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Model {
@@ -38,7 +34,7 @@ impl Default for Model {
     }
 }
 
-pub fn update(model: &mut Model, msg: Message) -> UpdateResult {
+pub fn update(model: &mut Model, msg: Message) -> UpdateResult<Message> {
     match msg {
         Message::Increment => {
             model.counter = model.counter.saturating_add(1);
@@ -52,30 +48,19 @@ pub fn update(model: &mut Model, msg: Message) -> UpdateResult {
             model.running_state = RunningState::Done;
             UpdateResult::None
         }
-        Message::RefreshProjects => UpdateResult::Cmd(Box::new(DockerComposeLsCommand {})),
-        Message::Projects(Ok(projects)) => {
-            model.projects_panel.list_state.select(
-                match (model.projects_panel.list_state.selected(), projects.len()) {
-                    (Some(idx), pl) => Some(min(idx, pl - 1)),
-                    (_, 0) => None,
-                    _ => Some(0),
-                },
-            );
-            model.projects_panel.projects = projects;
-            UpdateResult::None
-        }
-        Message::Projects(Err(_)) => UpdateResult::None,
         Message::Tick => UpdateResult::None,
-        Message::KeyPress(key) => map_key_to_message(key),
+        Message::KeyPress(key) => map_key_to_message(model, key),
 
-        msg => match model.active_panel {
-            PanelId::Projects => projects::update(&mut model.projects_panel, msg),
+        Message::ProjectsPanel(msg) => match model.active_panel {
+            PanelId::Projects => {
+                projects::update(&mut model.projects_panel, msg).map(Message::ProjectsPanel)
+            }
             _ => UpdateResult::None,
         },
     }
 }
 
-fn map_key_to_message(key: KeyEvent) -> UpdateResult {
+fn map_key_to_message(model: &Model, key: KeyEvent) -> UpdateResult<Message> {
     match key.code {
         KeyCode::Esc | KeyCode::Char('q') => UpdateResult::Msg(Message::Quit),
         KeyCode::Char('c' | 'C') if key.modifiers == KeyModifiers::CONTROL => {
@@ -83,15 +68,20 @@ fn map_key_to_message(key: KeyEvent) -> UpdateResult {
         }
         KeyCode::Right => UpdateResult::Msg(Message::Increment),
         KeyCode::Left => UpdateResult::Msg(Message::Decrement),
-        KeyCode::Up | KeyCode::Char('k') => UpdateResult::Msg(Message::Up),
-        KeyCode::Down | KeyCode::Char('j') => UpdateResult::Msg(Message::Down),
-        // Other handlers you could add here.
-        _ => UpdateResult::None,
+
+        _ => match model.active_panel {
+            PanelId::Projects => {
+                projects::map_key_to_message(&model.projects_panel, key).map(Message::ProjectsPanel)
+            }
+            _ => UpdateResult::None,
+        },
     }
 }
 
-pub fn subscriptions(_model: &Model) -> Subscription<Message> {
-    Subscription::Interval(Duration::from_secs(2), Message::RefreshProjects)
+pub fn subscriptions(model: &Model) -> Subscription<Message> {
+    Subscription::Batch(vec![
+        projects::subscriptions(&model.projects_panel).map(Message::ProjectsPanel),
+    ])
 }
 
 pub fn view(model: &mut Model, frame: &mut Frame) {

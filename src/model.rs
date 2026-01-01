@@ -1,4 +1,4 @@
-use crate::{event::Message, tea::BoxedCmd};
+use crate::cmd::{BoxedCmd, map_cmd};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
 pub enum PanelId {
@@ -23,9 +23,26 @@ pub enum RunningState {
     Done,
 }
 
-pub enum UpdateResult {
+pub enum UpdateResult<Msg> {
     None,
-    Msg(Message),
-    Cmd(BoxedCmd),
-    MsgAndCmd(Message, BoxedCmd)
+    Msg(Msg),
+    Cmd(BoxedCmd<Msg>),
+    MsgAndCmd(Msg, BoxedCmd<Msg>),
+}
+
+impl<Msg> UpdateResult<Msg>
+{
+    pub fn map<F, NewMsg>(self, f: F) -> UpdateResult<NewMsg>
+    where
+        Msg: Send + 'static,
+        NewMsg: Send + 'static,
+        F: Fn(Msg) -> NewMsg + Clone + Send + Sync + 'static,
+    {
+        match self {
+            UpdateResult::None => UpdateResult::None,
+            UpdateResult::Msg(msg) => UpdateResult::Msg(f(msg)),
+            UpdateResult::Cmd(cmd) => UpdateResult::Cmd(map_cmd(cmd, f)),
+            UpdateResult::MsgAndCmd(msg, cmd) => UpdateResult::MsgAndCmd(f(msg), map_cmd(cmd, f)),
+        }
+    }
 }
