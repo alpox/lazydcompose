@@ -10,7 +10,7 @@ pub trait Cmd<Msg>: Send + Sync {
 pub type BoxedCmd<Msg> = Box<dyn Cmd<Msg>>;
 
 pub struct MappedCmd<Msg, F> {
-    original: Box<dyn Cmd<Msg>>,
+    original: Box<dyn Cmd<Msg> + Send + Sync>,
     map_fn: F,
 }
 

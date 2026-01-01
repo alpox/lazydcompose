@@ -3,7 +3,7 @@ use crate::{log::initialize_logging, app::App};
 pub mod app;
 pub mod event;
 pub mod cli;
-pub mod sub;
+pub mod sub_manager;
 pub mod subs;
 pub mod log;
 pub mod cmd;

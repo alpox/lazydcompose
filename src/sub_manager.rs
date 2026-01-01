@@ -13,13 +13,13 @@ use crate::subs::{Subscription};
 
 type MsgStream<Msg> = Pin<Box<dyn Stream<Item = Msg> + Send>>;
 
-pub struct Sub<Msg: Send> {
+pub struct SubscriptionManager<Msg: Send> {
     stream_sender: UnboundedSender<MsgStream<Msg>>,
     stream_receiver: Arc<Mutex<UnboundedReceiver<MsgStream<Msg>>>>,
     current_sub: Subscription<Msg>,
 }
 
-impl<Msg> Default for Sub<Msg>
+impl<Msg> Default for SubscriptionManager<Msg>
 where
     Msg: PartialEq + Clone + Send,
 {
@@ -34,7 +34,7 @@ where
     }
 }
 
-impl<Msg> Sub<Msg>
+impl<Msg> SubscriptionManager<Msg>
 where
     Msg: Sync + PartialEq + Clone + Send + 'static + std::fmt::Debug,
 {

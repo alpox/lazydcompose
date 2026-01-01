@@ -1,4 +1,4 @@
-use crate::cmd::{BoxedCmd, map_cmd};
+use crate::{cmd::{BoxedCmd, map_cmd}, panels::projects::ProjectsPanel};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
 pub enum PanelId {
@@ -21,6 +21,25 @@ pub enum RunningState {
     #[default]
     Running,
     Done,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Model {
+    pub running_state: RunningState,
+    pub counter: u8,
+    pub projects_panel: ProjectsPanel,
+    pub active_panel: PanelId,
+}
+
+impl Default for Model {
+    fn default() -> Self {
+        Self {
+            running_state: RunningState::Running,
+            counter: 0,
+            active_panel: PanelId::default(),
+            projects_panel: ProjectsPanel::default(),
+        }
+    }
 }
 
 pub enum UpdateResult<Msg> {

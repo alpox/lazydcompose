@@ -1,9 +1,9 @@
 use crate::{
     cmd::Cmd,
     event::{EventHandler, Message},
-    model::{RunningState, UpdateResult},
-    sub::Sub,
-    tea::{self, Model},
+    model::{Model, RunningState, UpdateResult},
+    sub_manager::SubscriptionManager,
+    tea::{self},
 };
 use ratatui::DefaultTerminal;
 use tokio_stream::StreamExt;
@@ -14,7 +14,7 @@ pub struct App {
     pub model: Model,
     /// Event handler.
     pub events: EventHandler,
-    sub: Sub<Message>,
+    sub: SubscriptionManager<Message>,
 }
 
 impl Default for App {
@@ -22,7 +22,7 @@ impl Default for App {
         Self {
             model: Model::default(),
             events: EventHandler::new(),
-            sub: Sub::new(),
+            sub: SubscriptionManager::new(),
         }
     }
 }
