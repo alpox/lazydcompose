@@ -1,3 +1,5 @@
+use std::cmp::min;
+
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use ratatui::{
     Frame,
@@ -14,9 +16,25 @@ use crate::{
     subs::Subscription,
 };
 
+const PANEL_ORDER: [PanelId; 2] = [PanelId::Projects, PanelId::Containers];
+
 pub fn quit(model: &mut Model) -> Action<Message> {
     model.running_state = RunningState::Done;
     Action::None
+}
+
+pub fn move_panel_selection(model: &mut Model, offset: isize) {
+    let current_index = PANEL_ORDER.iter().position(|&id| id == model.active_panel);
+    match current_index {
+        Some(idx) => {
+            let new_idx = idx
+                .checked_add_signed(offset)
+                .unwrap_or(0)
+                .min(PANEL_ORDER.len().saturating_sub(1));
+            model.active_panel = PANEL_ORDER[new_idx]
+        }
+        None => model.active_panel = PANEL_ORDER[0],
+    }
 }
 
 pub fn update(model: &mut Model, msg: Message) -> Action<Message> {
@@ -44,6 +62,14 @@ fn handle_key(model: &mut Model, key: KeyEvent) -> Action<Message> {
     match key.code {
         KeyCode::Esc | KeyCode::Char('q') => quit(model),
         KeyCode::Char('c' | 'C') if key.modifiers == KeyModifiers::CONTROL => quit(model),
+        KeyCode::Right | KeyCode::Char('l') => {
+            move_panel_selection(model, 1);
+            Action::None
+        }
+        KeyCode::Left | KeyCode::Char('h') => {
+            move_panel_selection(model, -1);
+            Action::None
+        }
         _ => match model.active_panel {
             PanelId::Projects => projects::handle_key(&mut model.projects_panel, key)
                 .map_msg(Message::ProjectsPanel)
