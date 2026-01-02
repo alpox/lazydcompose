@@ -68,15 +68,17 @@ fn handle_key(model: &mut Model, key: KeyEvent) -> Action<Message> {
             move_panel_selection(model, -1);
             Action::None
         }
+        Some(KeyAction::SelectPanel(num)) => {
+            model.active_panel = PANEL_ORDER.get(num - 1).cloned().unwrap_or(model.active_panel);
+            Action::None
+        }
         _ => match model.active_panel {
             PanelId::Projects => projects::handle_key(&mut model.projects_panel, key)
                 .map_msg(Message::ProjectsPanel)
                 .into_inner(),
-            PanelId::Containers => {
-                containers::handle_key(&mut model.containers_panel, key)
-                    .map_msg(Message::ContainersPanel)
-                    .into_inner()
-            }
+            PanelId::Containers => containers::handle_key(&mut model.containers_panel, key)
+                .map_msg(Message::ContainersPanel)
+                .into_inner(),
             _ => Action::None,
         },
     }
