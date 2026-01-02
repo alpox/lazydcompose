@@ -1,12 +1,11 @@
-use std::cmp::min;
-
-use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+use crossterm::event::KeyEvent;
 use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout, Rect},
 };
 
 use crate::{
+    bindings::{Bindings, KeyAction},
     event::Message,
     model::{Action, Model, PanelId, RunningState},
     panels::{
@@ -59,14 +58,13 @@ pub fn update(model: &mut Model, msg: Message) -> Action<Message> {
 }
 
 fn handle_key(model: &mut Model, key: KeyEvent) -> Action<Message> {
-    match key.code {
-        KeyCode::Esc | KeyCode::Char('q') => quit(model),
-        KeyCode::Char('c' | 'C') if key.modifiers == KeyModifiers::CONTROL => quit(model),
-        KeyCode::Right | KeyCode::Char('l') => {
+    match Bindings.get(&key) {
+        Some(KeyAction::Quit) => quit(model),
+        Some(KeyAction::NextPanel) => {
             move_panel_selection(model, 1);
             Action::None
         }
-        KeyCode::Left | KeyCode::Char('h') => {
+        Some(KeyAction::PrevPanel) => {
             move_panel_selection(model, -1);
             Action::None
         }
@@ -74,9 +72,11 @@ fn handle_key(model: &mut Model, key: KeyEvent) -> Action<Message> {
             PanelId::Projects => projects::handle_key(&mut model.projects_panel, key)
                 .map_msg(Message::ProjectsPanel)
                 .into_inner(),
-            PanelId::Containers => containers::handle_key(&mut model.containers_panel, key)
-                .map_msg(Message::ContainersPanel)
-                .into_inner(),
+            PanelId::Containers => {
+                containers::handle_key(&mut model.containers_panel, key)
+                    .map_msg(Message::ContainersPanel)
+                    .into_inner()
+            }
             _ => Action::None,
         },
     }
@@ -120,6 +120,16 @@ fn layout(area: Rect) -> AppLayout {
 pub fn view(model: &mut Model, frame: &mut Frame) {
     let layout = layout(frame.area());
 
-    projects::view(&mut model.projects_panel, frame, layout.projects);
-    containers::view(&mut model.containers_panel, frame, layout.containers);
+    projects::view(
+        &mut model.projects_panel,
+        frame,
+        layout.projects,
+        model.active_panel == PanelId::Projects,
+    );
+    containers::view(
+        &mut model.containers_panel,
+        frame,
+        layout.containers,
+        model.active_panel == PanelId::Containers,
+    );
 }

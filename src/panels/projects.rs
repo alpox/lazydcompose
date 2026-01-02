@@ -1,6 +1,6 @@
 use std::{cmp::min, time::Duration};
 
-use crossterm::event::{KeyCode, KeyEvent};
+use crossterm::event::KeyEvent;
 use ratatui::{
     Frame,
     layout::{Alignment, Rect},
@@ -10,6 +10,7 @@ use ratatui::{
 };
 
 use crate::{
+    bindings::{Bindings, KeyAction},
     cli::Project,
     cmd::DockerComposeLsCommand,
     model::{Action, ChildAction, PanelId},
@@ -87,12 +88,12 @@ pub fn update(model: &mut ProjectsPanel, msg: Message) -> ChildAction<Message, O
 }
 
 pub fn handle_key(model: &mut ProjectsPanel, key: KeyEvent) -> ChildAction<Message, OutMessage> {
-    match key.code {
-        KeyCode::Up | KeyCode::Char('k') => {
+    match Bindings.get(&key) {
+        Some(KeyAction::MoveUp) => {
             model.list_state.select_previous();
             ChildAction::none()
         }
-        KeyCode::Down | KeyCode::Char('j') => {
+        Some(KeyAction::MoveDown) => {
             model.list_state.select_next();
             ChildAction::none()
         }
@@ -104,11 +105,16 @@ pub fn subscriptions(_model: &ProjectsPanel) -> Subscription<Message> {
     Subscription::Interval(Duration::from_secs(2), Message::RefreshProjects)
 }
 
-pub fn view(model: &mut ProjectsPanel, frame: &mut Frame, area: Rect) {
+pub fn view(model: &mut ProjectsPanel, frame: &mut Frame, area: Rect, is_active: bool) {
     let block = Block::bordered()
-        .title("lazydcompose")
+        .title("[1] projects")
         .title_alignment(Alignment::Center)
-        .border_type(BorderType::Rounded);
+        .border_type(BorderType::Rounded)
+        .border_style(if is_active {
+            Color::Green
+        } else {
+            Color::DarkGray
+        });
 
     let items = model.projects.iter().map(ListItem::from);
 
