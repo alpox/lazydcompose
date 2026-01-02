@@ -2,23 +2,16 @@ use color_eyre::eyre::{OptionExt};
 use crossterm::event::{KeyEvent};
 use tokio::sync::mpsc;
 
-use crate::panels::projects;
+use crate::{panels::{containers, projects}};
 
 /// Application events.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Message {
     Tick,
-    /// Increment the counter.
-    Increment,
-    /// Decrement the counter.
-    Decrement,
-    /// Quit the application.
     Quit,
-    /// Refresh the project list.
-
     KeyPress(KeyEvent),
-
-    ProjectsPanel(projects::Message)
+    ProjectsPanel(projects::Message),
+    ContainersPanel(containers::Message),
 }
 
 /// Terminal event handler.

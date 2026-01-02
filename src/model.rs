@@ -1,4 +1,7 @@
-use crate::{cmd::{BoxedCmd, map_cmd}, panels::projects::ProjectsPanel};
+use crate::{
+    cmd::{BoxedCmd, map_cmd},
+    panels::{containers::ContainersPanel, projects::ProjectsPanel},
+};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
 pub enum PanelId {
@@ -26,8 +29,8 @@ pub enum RunningState {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Model {
     pub running_state: RunningState,
-    pub counter: u8,
     pub projects_panel: ProjectsPanel,
+    pub containers_panel: ContainersPanel,
     pub active_panel: PanelId,
 }
 
@@ -35,33 +38,70 @@ impl Default for Model {
     fn default() -> Self {
         Self {
             running_state: RunningState::Running,
-            counter: 0,
             active_panel: PanelId::default(),
             projects_panel: ProjectsPanel::default(),
+            containers_panel: ContainersPanel::default(),
         }
     }
 }
 
-pub enum UpdateResult<Msg> {
+pub enum Action<Msg> {
     None,
-    Msg(Msg),
     Cmd(BoxedCmd<Msg>),
-    MsgAndCmd(Msg, BoxedCmd<Msg>),
 }
 
-impl<Msg> UpdateResult<Msg>
-{
-    pub fn map<F, NewMsg>(self, f: F) -> UpdateResult<NewMsg>
+impl<Msg> Action<Msg> {
+    pub fn map<F, NewMsg>(self, f: F) -> Action<NewMsg>
     where
         Msg: Send + 'static,
         NewMsg: Send + 'static,
         F: Fn(Msg) -> NewMsg + Clone + Send + Sync + 'static,
     {
         match self {
-            UpdateResult::None => UpdateResult::None,
-            UpdateResult::Msg(msg) => UpdateResult::Msg(f(msg)),
-            UpdateResult::Cmd(cmd) => UpdateResult::Cmd(map_cmd(cmd, f)),
-            UpdateResult::MsgAndCmd(msg, cmd) => UpdateResult::MsgAndCmd(f(msg), map_cmd(cmd, f)),
+            Action::None => Action::None,
+            Action::Cmd(cmd) => Action::Cmd(map_cmd(cmd, f)),
         }
+    }
+}
+
+pub struct ChildAction<Msg, OutMsg>(
+    pub Action<Msg>,
+    pub Option<OutMsg>
+);
+
+impl<Msg, OutMsg> ChildAction<Msg, OutMsg> {
+    pub fn none() -> Self {
+        ChildAction(Action::None, None)
+    }
+
+    pub fn out(out: OutMsg) -> Self {
+        ChildAction(Action::None, Some(out))
+    }
+
+    pub fn new(result: Action<Msg>) -> Self {
+        ChildAction(result, None)
+    }
+
+    pub fn map_msg<F, NewMsg>(self, f: F) -> ChildAction<NewMsg, OutMsg>
+    where
+        Msg: Send + 'static,
+        NewMsg: Send + 'static,
+        F: Fn(Msg) -> NewMsg + Clone + Send + Sync + 'static,
+    {
+        ChildAction(self.0.map(f), self.1)
+    }
+
+    pub fn handle_out<F>(self, handler: F) -> Action<Msg>
+    where
+        F: FnOnce(OutMsg) -> Action<Msg>,
+    {
+        match self.1 {
+            Some(out) => handler(out),
+            None => self.0
+        }
+    }
+
+    pub fn into_inner(self) -> Action<Msg> {
+        self.0
     }
 }

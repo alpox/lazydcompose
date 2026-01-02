@@ -1,7 +1,7 @@
 use crate::{
     cmd::Cmd,
     event::{EventHandler, Message},
-    model::{Model, RunningState, UpdateResult},
+    model::{Action, Model, RunningState},
     sub_manager::SubscriptionManager,
     tea::{self},
 };
@@ -33,7 +33,6 @@ impl App {
         Self::default()
     }
 
-    /// Run the application's main loop.
     pub async fn run(mut self, mut terminal: DefaultTerminal) -> color_eyre::Result<()> {
         self.update_subscriptions();
         self.process_subscriptions();
@@ -49,29 +48,14 @@ impl App {
         Ok(())
     }
 
-    /// Handle a message using pure update logic
     fn handle_message(&mut self, msg: Message) {
-        let mut current_msg = Some(msg);
-
-        while current_msg.is_some() {
-            match tea::update(&mut self.model, current_msg.unwrap()) {
-                UpdateResult::None => current_msg = None,
-                UpdateResult::Msg(msg) => current_msg = Some(msg),
-                UpdateResult::Cmd(cmd) => {
-                    current_msg = None;
-                    self.run_cmd(cmd)
-                }
-                UpdateResult::MsgAndCmd(msg, cmd) => {
-                    current_msg = Some(msg);
-                    self.run_cmd(cmd);
-                }
-            }
-
-            self.update_subscriptions();
+        if let Action::Cmd(cmd) = tea::update(&mut self.model, msg) {
+            self.run_cmd(cmd);
         }
+
+        self.update_subscriptions();
     }
 
-    /// Update subscriptions based on model
     fn update_subscriptions(&mut self) {
         let sub = tea::subscriptions(&self.model);
 

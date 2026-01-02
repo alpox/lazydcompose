@@ -1,6 +1,7 @@
 use async_trait::async_trait;
+use color_eyre::eyre::Error;
 
-use crate::cli::{Project, docker_compose_ls};
+use crate::cli::{Container, Project, docker_compose_ls, docker_container_list};
 
 #[async_trait]
 pub trait Cmd<Msg>: Send + Sync {
@@ -47,6 +48,22 @@ impl<Msg> Cmd<Msg> for DockerComposeLsCommand<Msg> {
         match docker_compose_ls().await {
             Ok(projects) => self.0(Ok(projects)),
             Err(_) => self.0(Err(())),
+        }
+    }
+}
+
+pub struct DockerContainerListCommand<Msg> {
+    pub args: Vec<String>,
+    pub msg_fn: fn(Result<Vec<Container>, Error>) -> Msg,
+}
+
+#[async_trait]
+impl<Msg> Cmd<Msg> for DockerContainerListCommand<Msg> {
+    async fn exec(&self) -> Msg {
+        let args = self.args.iter().map(String::as_str);
+        match docker_container_list(args).await {
+            Ok(containers) => (self.msg_fn)(Ok(containers)),
+            Err(err) => (self.msg_fn)(Err(err)),
         }
     }
 }
