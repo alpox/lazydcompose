@@ -7,7 +7,7 @@ use ratatui::{
 use crate::{
     bindings::{Bindings, KeyAction},
     event::Message,
-    model::{Action, Model, PanelId, RunningState},
+    model::{Action, ChildAction, ChildActionAdaptor, Model, PanelId, RunningState},
     panels::{
         containers::{self},
         projects::{self},
@@ -36,21 +36,28 @@ pub fn move_panel_selection(model: &mut Model, offset: isize) {
     }
 }
 
+impl ChildActionAdaptor<Model, Message> for ChildAction<projects::Message, projects::OutMessage> {
+    fn adapt(self, model: &mut Model) -> Action<Message> {
+        self.map_msg(Message::ProjectsPanel)
+            .handle_out(|m| match m {
+                projects::OutMessage::ProjectChanged(project) => containers::update(
+                    &mut model.containers_panel,
+                    containers::Message::RefreshContainers(project),
+                )
+                .map_msg(Message::ContainersPanel)
+                .into_inner(),
+            })
+    }
+}
+
 pub fn update(model: &mut Model, msg: Message) -> Action<Message> {
     match msg {
         Message::Quit => quit(model),
         Message::Tick => Action::None,
         Message::KeyPress(key) => handle_key(model, key),
-        Message::ProjectsPanel(msg) => projects::update(&mut model.projects_panel, msg)
-            .map_msg(Message::ProjectsPanel)
-            .handle_out(|m| match m {
-                projects::OutMessage::ProjectChanged(_) => containers::update(
-                    &mut model.containers_panel,
-                    containers::Message::RefreshContainers,
-                )
-                .map_msg(Message::ContainersPanel)
-                .into_inner(),
-            }),
+        Message::ProjectsPanel(msg) => {
+            projects::update(&mut model.projects_panel, msg).adapt(model)
+        }
         Message::ContainersPanel(msg) => containers::update(&mut model.containers_panel, msg)
             .map_msg(Message::ContainersPanel)
             .into_inner(),
@@ -69,13 +76,14 @@ fn handle_key(model: &mut Model, key: KeyEvent) -> Action<Message> {
             Action::None
         }
         Some(KeyAction::SelectPanel(num)) => {
-            model.active_panel = PANEL_ORDER.get(num - 1).cloned().unwrap_or(model.active_panel);
+            model.active_panel = PANEL_ORDER
+                .get(num - 1)
+                .cloned()
+                .unwrap_or(model.active_panel);
             Action::None
         }
         _ => match model.active_panel {
-            PanelId::Projects => projects::handle_key(&mut model.projects_panel, key)
-                .map_msg(Message::ProjectsPanel)
-                .into_inner(),
+            PanelId::Projects => projects::handle_key(&mut model.projects_panel, key).adapt(model),
             PanelId::Containers => containers::handle_key(&mut model.containers_panel, key)
                 .map_msg(Message::ContainersPanel)
                 .into_inner(),

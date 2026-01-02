@@ -69,6 +69,10 @@ pub struct ChildAction<Msg, OutMsg>(
     pub Option<OutMsg>
 );
 
+pub trait ChildActionAdaptor<Model, Msg> {
+    fn adapt(self, model: &mut Model) -> Action<Msg>;
+}
+
 impl<Msg, OutMsg> ChildAction<Msg, OutMsg> {
     pub fn none() -> Self {
         ChildAction(Action::None, None)

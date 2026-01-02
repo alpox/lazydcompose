@@ -75,8 +75,6 @@ pub async fn docker_container_list(
     let mut cmd_args = vec!["container", "list", "--format", "json"];
     cmd_args.extend(args);
 
-    trace_dbg!(&cmd_args);
-
     let output = Command::new("docker").args(cmd_args).output().await?;
 
     let utf8_output =

@@ -11,7 +11,7 @@ use ratatui::{
 
 use crate::{
     bindings::{Bindings, KeyAction},
-    cli::Container,
+    cli::{Container, Project},
     cmd::DockerContainerListCommand,
     model::{Action, ChildAction, PanelId},
     subs::Subscription,
@@ -28,7 +28,7 @@ impl From<&Container> for ListItem<'_> {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Message {
-    RefreshContainers,
+    RefreshContainers(Option<Project>),
     Containers(Result<Vec<Container>, String>),
 }
 
@@ -37,6 +37,16 @@ pub struct ContainersPanel {
     pub id: PanelId,
     pub containers: Vec<Container>,
     pub list_state: ListState,
+    current_project: Option<Project>,
+}
+
+impl ContainersPanel {
+    pub fn selected_container(&self) -> Option<Container> {
+        self.list_state
+            .selected()
+            .and_then(|index| self.containers.get(index))
+            .cloned()
+    }
 }
 
 impl Default for ContainersPanel {
@@ -45,19 +55,28 @@ impl Default for ContainersPanel {
             id: PanelId::Containers,
             list_state: ListState::default(),
             containers: vec![],
+            current_project: None,
         }
     }
 }
 
 pub fn update(model: &mut ContainersPanel, msg: Message) -> ChildAction<Message, ()> {
     match msg {
-        Message::RefreshContainers => {
+        Message::RefreshContainers(maybe_project) => {
+            model.current_project = maybe_project.clone();
+
+            let mut args: Vec<String> = vec!["-a".to_string()];
+            if let Some(project) = maybe_project {
+                let label_filter = format!("label=com.docker.compose.project={}", project.name);
+                args.push("--filter".to_string());
+                args.push(label_filter);
+            }
             let cmd = Action::Cmd(Box::new(DockerContainerListCommand {
                 msg_fn: |r| match r {
                     Ok(containers) => Message::Containers(Ok(containers)),
                     Err(err) => Message::Containers(Err(err.to_string())),
                 },
-                args: vec!["-a".to_string()],
+                args,
             }));
             ChildAction::new(cmd)
         }
@@ -65,7 +84,7 @@ pub fn update(model: &mut ContainersPanel, msg: Message) -> ChildAction<Message,
             model
                 .list_state
                 .select(match (model.list_state.selected(), containers.len()) {
-                    (Some(idx), pl) => Some(min(idx, pl - 1)),
+                    (Some(idx), pl) => Some(min(idx, pl.saturating_sub(1))),
                     (_, 0) => None,
                     _ => Some(0),
                 });
@@ -90,8 +109,11 @@ pub fn handle_key(model: &mut ContainersPanel, key: KeyEvent) -> ChildAction<Mes
     }
 }
 
-pub fn subscriptions(_model: &ContainersPanel) -> Subscription<Message> {
-    Subscription::Interval(Duration::from_secs(2), Message::RefreshContainers)
+pub fn subscriptions(model: &ContainersPanel) -> Subscription<Message> {
+    Subscription::Interval(
+        Duration::from_secs(2),
+        Message::RefreshContainers(model.current_project.clone()),
+    )
 }
 
 pub fn view(model: &mut ContainersPanel, frame: &mut Frame, area: Rect, is_active: bool) {

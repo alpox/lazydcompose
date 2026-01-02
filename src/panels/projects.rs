@@ -34,7 +34,7 @@ pub enum Message {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum OutMessage {
-    ProjectChanged(Project),
+    ProjectChanged(Option<Project>),
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -70,6 +70,7 @@ pub fn update(model: &mut ProjectsPanel, msg: Message) -> ChildAction<Message, O
             ChildAction::new(Action::Cmd(cmd))
         }
         Message::Projects(Ok(projects)) => {
+            let prev_selected = model.selected_project();
             model
                 .list_state
                 .select(match (model.list_state.selected(), projects.len()) {
@@ -78,9 +79,15 @@ pub fn update(model: &mut ProjectsPanel, msg: Message) -> ChildAction<Message, O
                     _ => Some(0),
                 });
             model.projects = projects;
-            match model.selected_project() {
-                Some(project) => ChildAction::out(OutMessage::ProjectChanged(project)),
-                None => ChildAction::none(),
+            match (prev_selected, model.selected_project()) {
+                (Some(prev_project), Some(project)) if prev_project.name != project.name => {
+                    ChildAction::out(OutMessage::ProjectChanged(Some(project)))
+                }
+                (None, Some(project)) => {
+                    ChildAction::out(OutMessage::ProjectChanged(Some(project)))
+                }
+                (_, None) => ChildAction::out(OutMessage::ProjectChanged(None)),
+                _ => ChildAction::none(),
             }
         }
         Message::Projects(Err(_)) => ChildAction::none(),
@@ -91,11 +98,11 @@ pub fn handle_key(model: &mut ProjectsPanel, key: KeyEvent) -> ChildAction<Messa
     match Bindings.get(&key) {
         Some(KeyAction::MoveUp) => {
             model.list_state.select_previous();
-            ChildAction::none()
+            ChildAction::out(OutMessage::ProjectChanged(model.selected_project()))
         }
         Some(KeyAction::MoveDown) => {
             model.list_state.select_next();
-            ChildAction::none()
+            ChildAction::out(OutMessage::ProjectChanged(model.selected_project()))
         }
         _ => ChildAction::none(),
     }
