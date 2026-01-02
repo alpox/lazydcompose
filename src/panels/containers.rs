@@ -102,7 +102,11 @@ pub fn handle_key(model: &mut ContainersPanel, key: KeyEvent) -> ChildAction<Mes
             ChildAction::none()
         }
         Some(KeyAction::MoveDown) => {
-            model.list_state.select_next();
+            if let Some(idx) = model.list_state.selected()
+                && idx < model.containers.len() - 1
+            {
+                model.list_state.select_next();
+            }
             ChildAction::none()
         }
         _ => ChildAction::none(),

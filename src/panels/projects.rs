@@ -101,7 +101,9 @@ pub fn handle_key(model: &mut ProjectsPanel, key: KeyEvent) -> ChildAction<Messa
             ChildAction::out(OutMessage::ProjectChanged(model.selected_project()))
         }
         Some(KeyAction::MoveDown) => {
-            model.list_state.select_next();
+            if let Some(idx) = model.list_state.selected() && idx < model.projects.len() - 1 {
+                model.list_state.select_next();
+            }
             ChildAction::out(OutMessage::ProjectChanged(model.selected_project()))
         }
         _ => ChildAction::none(),
