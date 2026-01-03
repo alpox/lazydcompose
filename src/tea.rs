@@ -16,7 +16,7 @@ use crate::{
         projects::{self},
     },
     subs::Subscription,
-    ui::list::ListStateExt,
+    ui::table::TableStateExt,
 };
 
 const PANEL_ORDER: [PanelId; 2] = [PanelId::Projects, PanelId::Containers];
@@ -49,14 +49,14 @@ pub fn update(model: &mut Model, msg: Message) -> Action<Message> {
             Action::Cmd(Box::new(DockerComposeLsCommand(Message::Projects)))
         }
         Message::Projects(Ok(projects)) => {
-            model.projects_list_state.fit(projects.len());
+            model.projects_table_state.fit(projects.len());
             model.projects = projects;
             refresh_containers(model)
         }
         Message::Projects(Err(_)) => Action::None,
         Message::RefreshContainers => refresh_containers(model),
         Message::Containers(Ok(containers)) => {
-            model.containers_list_state.fit(containers.len());
+            model.containers_table_state.fit(containers.len());
             model.containers = containers;
             Action::None
         }
@@ -91,9 +91,10 @@ fn handle_key(model: &mut Model, key: KeyEvent) -> Action<Message> {
 }
 
 pub fn subscriptions(_model: &Model) -> Subscription<Message> {
-    Subscription::Batch(vec![
-        Subscription::Interval(Duration::from_secs(2), Message::RefreshProjects),
-    ])
+    Subscription::Batch(vec![Subscription::Interval(
+        Duration::from_secs(2),
+        Message::RefreshProjects,
+    )])
 }
 
 struct AppLayout {

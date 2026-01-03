@@ -1,4 +1,4 @@
-use ratatui::widgets::ListState;
+use ratatui::widgets::TableState;
 
 use crate::{
     cli::{Container, Project},
@@ -37,8 +37,8 @@ pub struct Model {
 
     // UI state
     pub active_panel: PanelId,
-    pub projects_list_state: ListState,
-    pub containers_list_state: ListState,
+    pub projects_table_state: TableState,
+    pub containers_table_state: TableState,
 }
 
 impl Default for Model {
@@ -49,22 +49,22 @@ impl Default for Model {
             containers: vec![],
 
             active_panel: PanelId::default(),
-            projects_list_state: ListState::default(),
-            containers_list_state: ListState::default(),
+            projects_table_state: TableState::default(),
+            containers_table_state: TableState::default(),
         }
     }
 }
 
 impl Model {
     pub fn selected_project(&self) -> Option<Project> {
-        self.projects_list_state
+        self.projects_table_state
             .selected()
             .and_then(|index| self.projects.get(index))
             .cloned()
     }
 
     pub fn selected_container(&self) -> Option<Container> {
-        self.containers_list_state
+        self.containers_table_state
             .selected()
             .and_then(|index| self.containers.get(index))
             .cloned()

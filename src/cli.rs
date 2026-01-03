@@ -1,8 +1,35 @@
 use itertools::Itertools;
+use regex::Regex;
 use serde::{Deserialize, Serialize};
 
 use color_eyre::eyre::WrapErr;
 use tokio::process::Command;
+
+use crate::trace_dbg;
+
+#[derive(Clone, Serialize, Deserialize, PartialEq, Eq, Debug)]
+pub enum State {
+    #[serde(rename = "created")]
+    Created,
+    #[serde(rename = "running")]
+    Running,
+    #[serde(rename = "paused")]
+    Paused,
+    #[serde(rename = "restarting")]
+    Restarting,
+    #[serde(rename = "exited")]
+    Exited,
+    #[serde(rename = "removing")]
+    Removing,
+    #[serde(rename = "dead")]
+    Dead,
+}
+
+#[derive(Clone, Serialize, Deserialize, PartialEq, Eq, Debug)]
+pub struct ProjectContainersState {
+    pub state: State,
+    pub amount: usize,
+}
 
 #[derive(Clone, Serialize, Deserialize, PartialEq, Eq, Debug)]
 pub struct Project {
@@ -12,6 +39,8 @@ pub struct Project {
     pub status: String,
     #[serde(rename = "ConfigFiles")]
     pub config_files: String,
+    #[serde(skip)]
+    pub state: Vec<ProjectContainersState>,
 }
 
 #[derive(Clone, Serialize, Deserialize, PartialEq, Eq, Debug)]
@@ -49,7 +78,7 @@ pub struct Container {
     #[serde(rename = "Size")]
     pub size: String,
     #[serde(rename = "State")]
-    pub state: String,
+    pub state: State,
     #[serde(rename = "Status")]
     pub status: String,
 }
@@ -63,8 +92,28 @@ pub async fn docker_compose_ls() -> color_eyre::Result<Vec<Project>> {
     let utf8_output =
         String::from_utf8(output.stdout).wrap_err("Docker compose ls returned invalid utf8")?;
 
-    serde_json::from_str::<Vec<Project>>(&utf8_output)
-        .wrap_err("Could not parse docker compose ls output")
+    let mut projects = serde_json::from_str::<Vec<Project>>(&utf8_output)
+        .wrap_err("Could not parse docker compose ls output")?;
+
+    let reg = Regex::new(r"(\w+)\((\d+)\)").unwrap();
+    trace_dbg!(&projects);
+
+    for project in &mut projects {
+        project.state = reg
+            .captures_iter(&project.status)
+            .map(|capture| capture.extract())
+            .flat_map(|(_, [state, amount])| {
+                Some(ProjectContainersState {
+                    state: serde_json::from_str::<State>(&format!("\"{}\"", state)).ok()?,
+                    amount: amount.parse::<usize>().ok()?,
+                })
+            })
+            .collect();
+    }
+
+    trace_dbg!(&projects);
+
+    Ok(projects)
 }
 
 pub async fn docker_container_list(

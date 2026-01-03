@@ -1,39 +1,24 @@
 use crossterm::event::KeyEvent;
 use ratatui::{
     Frame,
-    layout::{Alignment, Rect},
+    layout::{Alignment, Constraint, Rect},
     style::{Color, Style},
-    text::Line,
-    widgets::{Block, BorderType, HighlightSpacing, List, ListItem},
+    widgets::{Block, BorderType, Cell, Row, Table},
 };
 
 use crate::{
-    bindings::{BINDINGS, KeyAction},
-    cli::Project,
-    event::Message,
-    model::{Action, Model, PanelId},
-    panels::containers::refresh_containers,
-    ui::list::ListStateExt,
+    bindings::{BINDINGS, KeyAction}, event::Message, model::{Action, Model, PanelId}, panels::containers::refresh_containers, trace_dbg, ui::{colors::Colorize, table::TableStateExt}
 };
-
-impl From<&Project> for ListItem<'_> {
-    fn from(value: &Project) -> Self {
-        ListItem::new(Line::styled(
-            format!("Project: {}", value.name),
-            Color::Cyan,
-        ))
-    }
-}
 
 pub fn handle_key(model: &mut Model, key: KeyEvent) -> Action<Message> {
     match BINDINGS.get(&key) {
         Some(KeyAction::MoveUp) => {
-            model.projects_list_state.select_previous();
+            model.projects_table_state.select_previous();
             refresh_containers(model)
         }
         Some(KeyAction::MoveDown) => {
-            model.projects_list_state.select_next();
-            model.projects_list_state.fit(model.projects.len());
+            model.projects_table_state.select_next();
+            model.projects_table_state.fit(model.projects.len());
             refresh_containers(model)
         }
         _ => Action::None,
@@ -51,13 +36,32 @@ pub fn view(model: &mut Model, frame: &mut Frame, area: Rect) {
             Color::DarkGray
         });
 
-    let items = model.projects.iter().map(ListItem::from);
+    let max_name_len = model
+        .projects
+        .iter()
+        .map(|project| project.name.len())
+        .max()
+        .unwrap_or(0) as u16;
 
-    let list = List::new(items)
-        .block(block)
-        .highlight_style(Style::new().bg(Color::DarkGray))
-        .highlight_symbol(">")
-        .highlight_spacing(HighlightSpacing::Always);
+    let rows: Vec<_> = model
+        .projects
+        .iter()
+        .map(|project| {
+            Row::new(vec![
+                Cell::from(project.name.clone()),
+                Cell::from(project.status.clone()),
+            ])
+            .style(project.colorize())
+        })
+        .collect();
 
-    frame.render_stateful_widget(list, area, &mut model.projects_list_state);
+    let table = Table::new(
+        rows,
+        [Constraint::Length(max_name_len + 1), Constraint::Fill(1)],
+    )
+    .block(block)
+    .row_highlight_style(Style::new().bg(Color::Rgb(40, 40, 60)))
+    .highlight_symbol(">");
+
+    frame.render_stateful_widget(table, area, &mut model.projects_table_state);
 }

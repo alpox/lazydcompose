@@ -1,10 +1,10 @@
 use crossterm::event::KeyEvent;
 use ratatui::{
     Frame,
-    layout::{Alignment, Rect},
+    layout::{Alignment, Constraint, Rect},
     style::{Color, Style},
     text::Line,
-    widgets::{Block, BorderType, HighlightSpacing, List, ListItem},
+    widgets::{Block, BorderType, Cell, ListItem, Row, Table},
 };
 
 use crate::{
@@ -13,7 +13,7 @@ use crate::{
     cmd::DockerContainerListCommand,
     event::Message,
     model::{Action, Model, PanelId},
-    ui::list::ListStateExt,
+    ui::{colors::Colorize, table::TableStateExt},
 };
 
 impl From<&Container> for ListItem<'_> {
@@ -43,12 +43,12 @@ pub fn refresh_containers(model: &mut Model) -> Action<Message> {
 pub fn handle_key(model: &mut Model, key: KeyEvent) -> Action<Message> {
     match BINDINGS.get(&key) {
         Some(KeyAction::MoveUp) => {
-            model.containers_list_state.select_previous();
+            model.containers_table_state.select_previous();
             Action::None
         }
         Some(KeyAction::MoveDown) => {
-            model.containers_list_state.select_next();
-            model.containers_list_state.fit(model.containers.len());
+            model.containers_table_state.select_next();
+            model.containers_table_state.fit(model.containers.len());
             Action::None
         }
         _ => Action::None,
@@ -66,13 +66,31 @@ pub fn view(model: &mut Model, frame: &mut Frame, area: Rect) {
             Color::DarkGray
         });
 
-    let items = model.containers.iter().map(ListItem::from);
+    let max_name_len = model
+        .containers
+        .iter()
+        .map(|container| container.names.len())
+        .max()
+        .unwrap_or(0) as u16;
 
-    let list = List::new(items)
-        .block(block)
-        .highlight_style(Style::new().bg(Color::DarkGray))
-        .highlight_symbol(">")
-        .highlight_spacing(HighlightSpacing::Always);
+    let rows: Vec<_> = model
+        .containers
+        .iter()
+        .map(|container| {
+            Row::new(vec![
+                Cell::from(container.names.clone()),
+                Cell::from(container.status.clone()),
+            ]).style(container.colorize())
+        })
+        .collect();
 
-    frame.render_stateful_widget(list, area, &mut model.containers_list_state);
+    let table = Table::new(
+        rows,
+        [Constraint::Length(max_name_len + 1), Constraint::Fill(1)],
+    )
+    .block(block)
+    .row_highlight_style(Style::new().bg(Color::Rgb(40, 40, 60)))
+    .highlight_symbol(">");
+
+    frame.render_stateful_widget(table, area, &mut model.containers_table_state);
 }
