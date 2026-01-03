@@ -5,7 +5,7 @@ use ratatui::{
 };
 
 use crate::{
-    bindings::{Bindings, KeyAction},
+    bindings::{BINDINGS, KeyAction},
     event::Message,
     model::{Action, ChildAction, ChildActionAdaptor, Model, PanelId, RunningState},
     panels::{
@@ -65,7 +65,7 @@ pub fn update(model: &mut Model, msg: Message) -> Action<Message> {
 }
 
 fn handle_key(model: &mut Model, key: KeyEvent) -> Action<Message> {
-    match Bindings.get(&key) {
+    match BINDINGS.get(&key) {
         Some(KeyAction::Quit) => quit(model),
         Some(KeyAction::NextPanel) => {
             move_panel_selection(model, 1);

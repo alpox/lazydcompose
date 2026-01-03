@@ -6,7 +6,6 @@ use crate::model::PanelId;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum KeyAction {
-    None,
     Quit,
     MoveUp,
     MoveDown,
@@ -20,11 +19,11 @@ struct Binding {
     description: &'static str,
     panels: Vec<PanelId>,
     matcher: fn(KeyEvent) -> bool,
-    action: fn(KeyEvent) -> KeyAction,
+    action: fn(KeyEvent) -> Option<KeyAction>,
 }
 
 lazy_static! {
-    pub static ref Bindings: KeyBindings = KeyBindings::default();
+    pub static ref BINDINGS: KeyBindings = KeyBindings::default();
 }
 
 pub struct KeyBindings {
@@ -36,7 +35,7 @@ impl Default for KeyBindings {
         Self {
             map: vec![
                 Binding {
-                    keys: "q, Esc",
+                    keys: "q, Ctrl+c",
                     description: "Quit application",
                     panels: vec![],
                     matcher: |k| {
@@ -52,35 +51,35 @@ impl Default for KeyBindings {
                             }
                         )
                     },
-                    action: |_| KeyAction::Quit,
+                    action: |_| Some(KeyAction::Quit),
                 },
                 Binding {
                     keys: "k, ↑",
                     description: "Move selection up",
                     panels: vec![PanelId::Projects, PanelId::Containers],
                     matcher: |k| matches!(k.code, KeyCode::Char('k') | KeyCode::Up),
-                    action: |_| KeyAction::MoveUp,
+                    action: |_| Some(KeyAction::MoveUp),
                 },
                 Binding {
                     keys: "j, ↓",
                     description: "Move selection down",
                     panels: vec![PanelId::Projects, PanelId::Containers],
                     matcher: |k| matches!(k.code, KeyCode::Char('j') | KeyCode::Down),
-                    action: |_| KeyAction::MoveDown,
+                    action: |_| Some(KeyAction::MoveDown),
                 },
                 Binding {
                     keys: "l, →",
                     description: "Select next panel",
                     panels: vec![],
                     matcher: |k| matches!(k.code, KeyCode::Char('l') | KeyCode::Right),
-                    action: |_| KeyAction::NextPanel,
+                    action: |_| Some(KeyAction::NextPanel),
                 },
                 Binding {
                     keys: "h, ←",
                     description: "Select previous panel",
                     panels: vec![],
                     matcher: |k| matches!(k.code, KeyCode::Char('h') | KeyCode::Left),
-                    action: |_| KeyAction::PrevPanel,
+                    action: |_| Some(KeyAction::PrevPanel),
                 },
                 Binding {
                     keys: "1-9",
@@ -95,9 +94,8 @@ impl Default for KeyBindings {
                     action: |k| match k.code {
                         KeyCode::Char(num) => num
                             .to_digit(10)
-                            .map(|d| KeyAction::SelectPanel(d as usize))
-                            .unwrap_or(KeyAction::None),
-                        _ => KeyAction::None,
+                            .map(|d| KeyAction::SelectPanel(d as usize)),
+                        _ => None,
                     },
                 },
             ],
@@ -110,6 +108,6 @@ impl KeyBindings {
         self.map
             .iter()
             .find(|binding| (binding.matcher)(*key))
-            .map(|binding| (binding.action)(*key))
+            .and_then(|binding| (binding.action)(*key))
     }
 }
