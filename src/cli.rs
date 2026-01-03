@@ -5,8 +5,6 @@ use serde::{Deserialize, Serialize};
 use color_eyre::eyre::WrapErr;
 use tokio::process::Command;
 
-use crate::trace_dbg;
-
 #[derive(Clone, Serialize, Deserialize, PartialEq, Eq, Debug)]
 pub enum State {
     #[serde(rename = "created")]
