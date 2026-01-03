@@ -10,7 +10,7 @@ use ratatui::{
 };
 
 use crate::{
-    bindings::{Bindings, KeyAction},
+    bindings::{BINDINGS, KeyAction},
     cli::{Container, Project},
     cmd::DockerContainerListCommand,
     model::{Action, ChildAction, PanelId},
@@ -96,7 +96,7 @@ pub fn update(model: &mut ContainersPanel, msg: Message) -> ChildAction<Message,
 }
 
 pub fn handle_key(model: &mut ContainersPanel, key: KeyEvent) -> ChildAction<Message, ()> {
-    match Bindings.get(&key) {
+    match BINDINGS.get(&key) {
         Some(KeyAction::MoveUp) => {
             model.list_state.select_previous();
             ChildAction::none()

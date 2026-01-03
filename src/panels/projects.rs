@@ -10,7 +10,7 @@ use ratatui::{
 };
 
 use crate::{
-    bindings::{Bindings, KeyAction},
+    bindings::{BINDINGS, KeyAction},
     cli::Project,
     cmd::DockerComposeLsCommand,
     model::{Action, ChildAction, PanelId},
@@ -95,7 +95,7 @@ pub fn update(model: &mut ProjectsPanel, msg: Message) -> ChildAction<Message, O
 }
 
 pub fn handle_key(model: &mut ProjectsPanel, key: KeyEvent) -> ChildAction<Message, OutMessage> {
-    match Bindings.get(&key) {
+    match BINDINGS.get(&key) {
         Some(KeyAction::MoveUp) => {
             model.list_state.select_previous();
             ChildAction::out(OutMessage::ProjectChanged(model.selected_project()))
