@@ -7,7 +7,11 @@ use ratatui::{
 };
 
 use crate::{
-    bindings::{BINDINGS, KeyAction}, event::Message, model::{Action, Model, PanelId}, panels::containers::refresh_containers, trace_dbg, ui::{colors::Colorize, table::TableStateExt}
+    bindings::{BINDINGS, KeyAction},
+    event::Message,
+    model::{Action, Model, PanelId},
+    panels::containers::refresh_containers,
+    ui::{colors::Colorize, table::TableStateExt},
 };
 
 pub fn handle_key(model: &mut Model, key: KeyEvent) -> Action<Message> {

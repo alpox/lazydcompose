@@ -1,6 +1,6 @@
 use ratatui::style::Color;
 
-use crate::{cli::{Container, Project, State}, trace_dbg};
+use crate::cli::{Container, Project, State};
 
 pub trait Colorize {
     fn colorize(&self) -> Color;

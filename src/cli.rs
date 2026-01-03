@@ -96,7 +96,6 @@ pub async fn docker_compose_ls() -> color_eyre::Result<Vec<Project>> {
         .wrap_err("Could not parse docker compose ls output")?;
 
     let reg = Regex::new(r"(\w+)\((\d+)\)").unwrap();
-    trace_dbg!(&projects);
 
     for project in &mut projects {
         project.state = reg
@@ -110,8 +109,6 @@ pub async fn docker_compose_ls() -> color_eyre::Result<Vec<Project>> {
             })
             .collect();
     }
-
-    trace_dbg!(&projects);
 
     Ok(projects)
 }
