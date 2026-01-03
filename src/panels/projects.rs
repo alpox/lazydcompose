@@ -1,20 +1,19 @@
-use std::{cmp::min, time::Duration};
-
 use crossterm::event::KeyEvent;
 use ratatui::{
     Frame,
     layout::{Alignment, Rect},
     style::{Color, Style},
     text::Line,
-    widgets::{Block, BorderType, HighlightSpacing, List, ListItem, ListState},
+    widgets::{Block, BorderType, HighlightSpacing, List, ListItem},
 };
 
 use crate::{
     bindings::{BINDINGS, KeyAction},
     cli::Project,
-    cmd::DockerComposeLsCommand,
-    model::{Action, ChildAction, PanelId},
-    subs::Subscription,
+    event::Message,
+    model::{Action, Model, PanelId},
+    panels::containers::refresh_containers,
+    ui::list::ListStateExt,
 };
 
 impl From<&Project> for ListItem<'_> {
@@ -26,100 +25,27 @@ impl From<&Project> for ListItem<'_> {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub enum Message {
-    RefreshProjects,
-    Projects(Result<Vec<Project>, ()>),
-}
-
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub enum OutMessage {
-    ProjectChanged(Option<Project>),
-}
-
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct ProjectsPanel {
-    pub id: PanelId,
-    pub projects: Vec<Project>,
-    pub list_state: ListState,
-}
-
-impl Default for ProjectsPanel {
-    fn default() -> Self {
-        Self {
-            id: PanelId::Projects,
-            list_state: ListState::default(),
-            projects: vec![],
-        }
-    }
-}
-
-impl ProjectsPanel {
-    pub fn selected_project(&self) -> Option<Project> {
-        self.list_state
-            .selected()
-            .and_then(|index| self.projects.get(index))
-            .cloned()
-    }
-}
-
-pub fn update(model: &mut ProjectsPanel, msg: Message) -> ChildAction<Message, OutMessage> {
-    match msg {
-        Message::RefreshProjects => {
-            let cmd = Box::new(DockerComposeLsCommand(Message::Projects));
-            ChildAction::new(Action::Cmd(cmd))
-        }
-        Message::Projects(Ok(projects)) => {
-            let prev_selected = model.selected_project();
-            model
-                .list_state
-                .select(match (model.list_state.selected(), projects.len()) {
-                    (Some(idx), pl) => Some(min(idx, pl - 1)),
-                    (_, 0) => None,
-                    _ => Some(0),
-                });
-            model.projects = projects;
-            match (prev_selected, model.selected_project()) {
-                (Some(prev_project), Some(project)) if prev_project.name != project.name => {
-                    ChildAction::out(OutMessage::ProjectChanged(Some(project)))
-                }
-                (None, Some(project)) => {
-                    ChildAction::out(OutMessage::ProjectChanged(Some(project)))
-                }
-                (_, None) => ChildAction::out(OutMessage::ProjectChanged(None)),
-                _ => ChildAction::none(),
-            }
-        }
-        Message::Projects(Err(_)) => ChildAction::none(),
-    }
-}
-
-pub fn handle_key(model: &mut ProjectsPanel, key: KeyEvent) -> ChildAction<Message, OutMessage> {
+pub fn handle_key(model: &mut Model, key: KeyEvent) -> Action<Message> {
     match BINDINGS.get(&key) {
         Some(KeyAction::MoveUp) => {
-            model.list_state.select_previous();
-            ChildAction::out(OutMessage::ProjectChanged(model.selected_project()))
+            model.projects_list_state.select_previous();
+            refresh_containers(model)
         }
         Some(KeyAction::MoveDown) => {
-            if let Some(idx) = model.list_state.selected() && idx < model.projects.len() - 1 {
-                model.list_state.select_next();
-            }
-            ChildAction::out(OutMessage::ProjectChanged(model.selected_project()))
+            model.projects_list_state.select_next();
+            model.projects_list_state.fit(model.projects.len());
+            refresh_containers(model)
         }
-        _ => ChildAction::none(),
+        _ => Action::None,
     }
 }
 
-pub fn subscriptions(_model: &ProjectsPanel) -> Subscription<Message> {
-    Subscription::Interval(Duration::from_secs(2), Message::RefreshProjects)
-}
-
-pub fn view(model: &mut ProjectsPanel, frame: &mut Frame, area: Rect, is_active: bool) {
+pub fn view(model: &mut Model, frame: &mut Frame, area: Rect) {
     let block = Block::bordered()
         .title("[1] projects")
         .title_alignment(Alignment::Center)
         .border_type(BorderType::Rounded)
-        .border_style(if is_active {
+        .border_style(if model.active_panel == PanelId::Projects {
             Color::Green
         } else {
             Color::DarkGray
@@ -133,5 +59,5 @@ pub fn view(model: &mut ProjectsPanel, frame: &mut Frame, area: Rect, is_active:
         .highlight_symbol(">")
         .highlight_spacing(HighlightSpacing::Always);
 
-    frame.render_stateful_widget(list, area, &mut model.list_state);
+    frame.render_stateful_widget(list, area, &mut model.projects_list_state);
 }

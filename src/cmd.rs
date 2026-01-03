@@ -1,7 +1,18 @@
+use std::fmt::Display;
+
 use async_trait::async_trait;
-use color_eyre::eyre::Error;
 
 use crate::cli::{Container, Project, docker_compose_ls, docker_container_list};
+
+pub trait ResultExt<T> {
+    fn stringify_err(self) -> Result<T, String>;
+}
+
+impl<T, E: Display> ResultExt<T> for Result<T, E> {
+    fn stringify_err(self) -> Result<T, String> {
+        self.map_err(|e| e.to_string())
+    }
+}
 
 #[async_trait]
 pub trait Cmd<Msg>: Send + Sync {
@@ -40,30 +51,24 @@ where
     })
 }
 
-pub struct DockerComposeLsCommand<Msg>(pub fn(Result<Vec<Project>, ()>) -> Msg);
+pub struct DockerComposeLsCommand<Msg>(pub fn(Result<Vec<Project>, String>) -> Msg);
 
 #[async_trait]
 impl<Msg> Cmd<Msg> for DockerComposeLsCommand<Msg> {
     async fn exec(&self) -> Msg {
-        match docker_compose_ls().await {
-            Ok(projects) => self.0(Ok(projects)),
-            Err(_) => self.0(Err(())),
-        }
+        self.0(docker_compose_ls().await.stringify_err())
     }
 }
 
 pub struct DockerContainerListCommand<Msg> {
     pub args: Vec<String>,
-    pub msg_fn: fn(Result<Vec<Container>, Error>) -> Msg,
+    pub msg_fn: fn(Result<Vec<Container>, String>) -> Msg,
 }
 
 #[async_trait]
 impl<Msg> Cmd<Msg> for DockerContainerListCommand<Msg> {
     async fn exec(&self) -> Msg {
         let args = self.args.iter().map(String::as_str);
-        match docker_container_list(args).await {
-            Ok(containers) => (self.msg_fn)(Ok(containers)),
-            Err(err) => (self.msg_fn)(Err(err)),
-        }
+        (self.msg_fn)(docker_container_list(args).await.stringify_err())
     }
 }

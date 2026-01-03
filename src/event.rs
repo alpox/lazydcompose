@@ -1,8 +1,8 @@
-use color_eyre::eyre::{OptionExt};
-use crossterm::event::{KeyEvent};
+use color_eyre::eyre::OptionExt;
+use crossterm::event::KeyEvent;
 use tokio::sync::mpsc;
 
-use crate::{panels::{containers, projects}};
+use crate::cli::{Container, Project};
 
 /// Application events.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -10,8 +10,10 @@ pub enum Message {
     Tick,
     Quit,
     KeyPress(KeyEvent),
-    ProjectsPanel(projects::Message),
-    ContainersPanel(containers::Message),
+    RefreshProjects,
+    Projects(Result<Vec<Project>, String>),
+    RefreshContainers,
+    Containers(Result<Vec<Container>, String>),
 }
 
 /// Terminal event handler.

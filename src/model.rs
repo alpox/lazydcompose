@@ -1,6 +1,8 @@
+use ratatui::widgets::ListState;
+
 use crate::{
+    cli::{Container, Project},
     cmd::{BoxedCmd, map_cmd},
-    panels::{containers::ContainersPanel, projects::ProjectsPanel},
 };
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
@@ -28,20 +30,44 @@ pub enum RunningState {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Model {
+    // Application data
     pub running_state: RunningState,
-    pub projects_panel: ProjectsPanel,
-    pub containers_panel: ContainersPanel,
+    pub projects: Vec<Project>,
+    pub containers: Vec<Container>,
+
+    // UI state
     pub active_panel: PanelId,
+    pub projects_list_state: ListState,
+    pub containers_list_state: ListState,
 }
 
 impl Default for Model {
     fn default() -> Self {
         Self {
             running_state: RunningState::Running,
+            projects: vec![],
+            containers: vec![],
+
             active_panel: PanelId::default(),
-            projects_panel: ProjectsPanel::default(),
-            containers_panel: ContainersPanel::default(),
+            projects_list_state: ListState::default(),
+            containers_list_state: ListState::default(),
         }
+    }
+}
+
+impl Model {
+    pub fn selected_project(&self) -> Option<Project> {
+        self.projects_list_state
+            .selected()
+            .and_then(|index| self.projects.get(index))
+            .cloned()
+    }
+
+    pub fn selected_container(&self) -> Option<Container> {
+        self.containers_list_state
+            .selected()
+            .and_then(|index| self.containers.get(index))
+            .cloned()
     }
 }
 
@@ -64,10 +90,7 @@ impl<Msg> Action<Msg> {
     }
 }
 
-pub struct ChildAction<Msg, OutMsg>(
-    pub Action<Msg>,
-    pub Option<OutMsg>
-);
+pub struct ChildAction<Msg, OutMsg>(pub Action<Msg>, pub Option<OutMsg>);
 
 pub trait ChildActionAdaptor<Model, Msg> {
     fn adapt(self, model: &mut Model) -> Action<Msg>;
@@ -101,7 +124,7 @@ impl<Msg, OutMsg> ChildAction<Msg, OutMsg> {
     {
         match self.1 {
             Some(out) => handler(out),
-            None => self.0
+            None => self.0,
         }
     }
 

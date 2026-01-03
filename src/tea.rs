@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use crossterm::event::KeyEvent;
 use ratatui::{
     Frame,
@@ -6,13 +8,15 @@ use ratatui::{
 
 use crate::{
     bindings::{BINDINGS, KeyAction},
+    cmd::DockerComposeLsCommand,
     event::Message,
-    model::{Action, ChildAction, ChildActionAdaptor, Model, PanelId, RunningState},
+    model::{Action, Model, PanelId, RunningState},
     panels::{
-        containers::{self},
+        containers::{self, refresh_containers},
         projects::{self},
     },
     subs::Subscription,
+    ui::list::ListStateExt,
 };
 
 const PANEL_ORDER: [PanelId; 2] = [PanelId::Projects, PanelId::Containers];
@@ -36,31 +40,27 @@ pub fn move_panel_selection(model: &mut Model, offset: isize) {
     }
 }
 
-impl ChildActionAdaptor<Model, Message> for ChildAction<projects::Message, projects::OutMessage> {
-    fn adapt(self, model: &mut Model) -> Action<Message> {
-        self.map_msg(Message::ProjectsPanel)
-            .handle_out(|m| match m {
-                projects::OutMessage::ProjectChanged(project) => containers::update(
-                    &mut model.containers_panel,
-                    containers::Message::RefreshContainers(project),
-                )
-                .map_msg(Message::ContainersPanel)
-                .into_inner(),
-            })
-    }
-}
-
 pub fn update(model: &mut Model, msg: Message) -> Action<Message> {
     match msg {
         Message::Quit => quit(model),
         Message::Tick => Action::None,
         Message::KeyPress(key) => handle_key(model, key),
-        Message::ProjectsPanel(msg) => {
-            projects::update(&mut model.projects_panel, msg).adapt(model)
+        Message::RefreshProjects => {
+            Action::Cmd(Box::new(DockerComposeLsCommand(Message::Projects)))
         }
-        Message::ContainersPanel(msg) => containers::update(&mut model.containers_panel, msg)
-            .map_msg(Message::ContainersPanel)
-            .into_inner(),
+        Message::Projects(Ok(projects)) => {
+            model.projects_list_state.fit(projects.len());
+            model.projects = projects;
+            refresh_containers(model)
+        }
+        Message::Projects(Err(_)) => Action::None,
+        Message::RefreshContainers => refresh_containers(model),
+        Message::Containers(Ok(containers)) => {
+            model.containers_list_state.fit(containers.len());
+            model.containers = containers;
+            Action::None
+        }
+        Message::Containers(Err(_)) => Action::None,
     }
 }
 
@@ -83,19 +83,16 @@ fn handle_key(model: &mut Model, key: KeyEvent) -> Action<Message> {
             Action::None
         }
         _ => match model.active_panel {
-            PanelId::Projects => projects::handle_key(&mut model.projects_panel, key).adapt(model),
-            PanelId::Containers => containers::handle_key(&mut model.containers_panel, key)
-                .map_msg(Message::ContainersPanel)
-                .into_inner(),
+            PanelId::Projects => projects::handle_key(model, key),
+            PanelId::Containers => containers::handle_key(model, key),
             _ => Action::None,
         },
     }
 }
 
-pub fn subscriptions(model: &Model) -> Subscription<Message> {
+pub fn subscriptions(_model: &Model) -> Subscription<Message> {
     Subscription::Batch(vec![
-        projects::subscriptions(&model.projects_panel).map(Message::ProjectsPanel),
-        containers::subscriptions(&model.containers_panel).map(Message::ContainersPanel),
+        Subscription::Interval(Duration::from_secs(2), Message::RefreshProjects),
     ])
 }
 
@@ -130,16 +127,6 @@ fn layout(area: Rect) -> AppLayout {
 pub fn view(model: &mut Model, frame: &mut Frame) {
     let layout = layout(frame.area());
 
-    projects::view(
-        &mut model.projects_panel,
-        frame,
-        layout.projects,
-        model.active_panel == PanelId::Projects,
-    );
-    containers::view(
-        &mut model.containers_panel,
-        frame,
-        layout.containers,
-        model.active_panel == PanelId::Containers,
-    );
+    projects::view(model, frame, layout.projects);
+    containers::view(model, frame, layout.containers);
 }
