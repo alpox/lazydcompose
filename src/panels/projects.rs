@@ -8,6 +8,7 @@ use ratatui::{
 
 use crate::{
     bindings::{BINDINGS, KeyAction},
+    cmd::DockerComposeAction,
     event::Message,
     model::{Action, Model, PanelId},
     panels::containers::refresh_containers,
@@ -24,6 +25,28 @@ pub fn handle_key(model: &mut Model, key: KeyEvent) -> Action<Message> {
             model.projects_table_state.select_next();
             model.projects_table_state.fit(model.projects.len());
             refresh_containers(model)
+        }
+        Some(KeyAction::CommandBigS) => {
+            if let Some(project) = model.selected_project() {
+                Action::Cmd(Box::new(DockerComposeAction {
+                    project: project.name,
+                    args: vec!["stop".to_string()],
+                    msg_fn: Message::DockerComposeStop,
+                }))
+            } else {
+                Action::None
+            }
+        }
+        Some(KeyAction::CommandSmallS) => {
+            if let Some(project) = model.selected_project() {
+                Action::Cmd(Box::new(DockerComposeAction {
+                    project: project.name,
+                    args: vec!["start".to_string()],
+                    msg_fn: Message::DockerComposeStart,
+                }))
+            } else {
+                Action::None
+            }
         }
         _ => Action::None,
     }

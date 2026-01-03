@@ -61,6 +61,12 @@ pub fn update(model: &mut Model, msg: Message) -> Action<Message> {
             Action::None
         }
         Message::Containers(Err(_)) => Action::None,
+        Message::DockerComposeStart(_) => {
+            refresh_containers(model)
+        },
+        Message::DockerComposeStop(_) => {
+            refresh_containers(model)
+        },
     }
 }
 
@@ -92,7 +98,7 @@ fn handle_key(model: &mut Model, key: KeyEvent) -> Action<Message> {
 
 pub fn subscriptions(_model: &Model) -> Subscription<Message> {
     Subscription::Batch(vec![Subscription::Interval(
-        Duration::from_secs(2),
+        Duration::from_secs(1),
         Message::RefreshProjects,
     )])
 }

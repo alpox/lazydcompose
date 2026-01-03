@@ -14,6 +14,8 @@ pub enum Message {
     Projects(Result<Vec<Project>, String>),
     RefreshContainers,
     Containers(Result<Vec<Container>, String>),
+    DockerComposeStart(Result<String, String>),
+    DockerComposeStop(Result<String, String>),
 }
 
 /// Terminal event handler.

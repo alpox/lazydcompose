@@ -12,6 +12,8 @@ pub enum KeyAction {
     NextPanel,
     PrevPanel,
     SelectPanel(usize),
+    CommandSmallS,
+    CommandBigS,
 }
 
 struct Binding {
@@ -98,7 +100,21 @@ impl Default for KeyBindings {
                         _ => None,
                     },
                 },
-            ],
+                Binding {
+                    keys: "s",
+                    description: "Docker compose start",
+                    panels: vec![PanelId::Projects],
+                    matcher: |k| matches!(k.code, KeyCode::Char('s')),
+                    action: |_| Some(KeyAction::CommandSmallS)
+                },
+                Binding {
+                    keys: "S",
+                    description: "Docker compose stop",
+                    panels: vec![PanelId::Projects],
+                    matcher: |k| matches!(k.code, KeyCode::Char('S')),
+                    action: |_| Some(KeyAction::CommandBigS)
+                }
+           ],
         }
     }
 }

@@ -2,7 +2,9 @@ use std::fmt::Display;
 
 use async_trait::async_trait;
 
-use crate::cli::{Container, Project, docker_compose_ls, docker_container_list};
+use crate::cli::{
+    Container, Project, docker_compose_action, docker_compose_ls, docker_container_list,
+};
 
 pub trait ResultExt<T> {
     fn stringify_err(self) -> Result<T, String>;
@@ -70,5 +72,23 @@ impl<Msg> Cmd<Msg> for DockerContainerListCommand<Msg> {
     async fn exec(&self) -> Msg {
         let args = self.args.iter().map(String::as_str);
         (self.msg_fn)(docker_container_list(args).await.stringify_err())
+    }
+}
+
+pub struct DockerComposeAction<Msg> {
+    pub project: String,
+    pub args: Vec<String>,
+    pub msg_fn: fn(Result<String, String>) -> Msg,
+}
+
+#[async_trait]
+impl<Msg> Cmd<Msg> for DockerComposeAction<Msg> {
+    async fn exec(&self) -> Msg {
+        let args = self.args.iter().map(String::as_str);
+        (self.msg_fn)(
+            docker_compose_action(self.project.clone(), args)
+                .await
+                .stringify_err(),
+        )
     }
 }
