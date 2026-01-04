@@ -88,6 +88,8 @@ pub struct Model {
     pub containers_table_state: TableState,
 
     pub notes: Vec<Note>,
+
+    pub show_bindings_popup: bool,
 }
 
 impl Default for Model {
@@ -102,6 +104,8 @@ impl Default for Model {
             containers_table_state: TableState::default(),
 
             notes: vec![],
+
+            show_bindings_popup: false,
         }
     }
 }

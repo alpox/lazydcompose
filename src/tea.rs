@@ -5,7 +5,7 @@ use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Style},
-    widgets::Widget,
+    widgets::{Paragraph, Widget},
 };
 
 use crate::{
@@ -18,12 +18,16 @@ use crate::{
         projects::{self},
     },
     subs::Subscription,
-    ui::{notes::Notes, table::TableStateExt},
+    ui::{bindings::Bindings, notes::Notes, table::TableStateExt},
 };
 
 const PANEL_ORDER: [PanelId; 2] = [PanelId::Projects, PanelId::Containers];
 
 pub fn quit(model: &mut Model) -> Action<Message> {
+    if model.show_bindings_popup {
+        model.show_bindings_popup = false;
+        return Action::None;
+    }
     model.running_state = RunningState::Done;
     Action::None
 }
@@ -101,6 +105,10 @@ pub fn update(model: &mut Model, msg: Message) -> Action<Message> {
 fn handle_key(model: &mut Model, key: KeyEvent) -> Action<Message> {
     match BINDINGS.get(&key) {
         Some(KeyAction::Quit) => quit(model),
+        Some(KeyAction::ClosePopup) => {
+            model.show_bindings_popup = false;
+            Action::None
+        }
         Some(KeyAction::NextPanel) => {
             move_panel_selection(model, 1);
             Action::None
@@ -114,6 +122,10 @@ fn handle_key(model: &mut Model, key: KeyEvent) -> Action<Message> {
                 .get(num - 1)
                 .cloned()
                 .unwrap_or(model.active_panel);
+            Action::None
+        }
+        Some(KeyAction::ShowBindings) => {
+            model.show_bindings_popup = true;
             Action::None
         }
         _ => match model.active_panel {
@@ -144,13 +156,19 @@ struct AppLayout {
     pub projects: Rect,
     pub containers: Rect,
     pub main: Rect,
+    pub hints: Rect,
 }
 
 fn layout(area: Rect) -> AppLayout {
+    let full = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([Constraint::Fill(1), Constraint::Length(1)])
+        .split(area);
+
     let horizontal = Layout::default()
         .direction(Direction::Horizontal)
         .constraints([Constraint::Percentage(30), Constraint::Percentage(70)])
-        .split(area);
+        .split(full[0]);
 
     let vertical = Layout::default()
         .direction(Direction::Vertical)
@@ -165,6 +183,7 @@ fn layout(area: Rect) -> AppLayout {
         projects: vertical[0],
         containers: vertical[1],
         main: horizontal[1],
+        hints: full[1],
     }
 }
 
@@ -175,4 +194,10 @@ pub fn view(model: &mut Model, frame: &mut Frame) {
     containers::view(model, frame, layout.containers);
 
     Notes::new(model.notes.clone()).render(frame.area(), frame.buffer_mut());
+
+    if model.show_bindings_popup {
+        Bindings::new(model.active_panel).render(frame.area(), frame.buffer_mut());
+    }
+
+    Paragraph::new("?: Keybindings").render(layout.hints, frame.buffer_mut());
 }

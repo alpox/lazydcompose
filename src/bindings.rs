@@ -17,12 +17,15 @@ pub enum KeyAction {
     DockerComposeDown,
     DockerComposeUp,
     DockerComposeRestart,
+    ShowBindings,
+    ClosePopup,
 }
 
-struct Binding {
-    keys: &'static str,
-    description: &'static str,
-    panels: Vec<PanelId>,
+#[derive(Clone, Debug)]
+pub struct Binding {
+    pub keys: &'static str,
+    pub description: &'static str,
+    pub panels: Vec<PanelId>,
     matcher: fn(KeyEvent) -> bool,
     action: fn(KeyEvent) -> Option<KeyAction>,
 }
@@ -32,7 +35,7 @@ lazy_static! {
 }
 
 pub struct KeyBindings {
-    map: Vec<Binding>,
+    pub map: Vec<Binding>,
 }
 
 impl Default for KeyBindings {
@@ -138,6 +141,20 @@ impl Default for KeyBindings {
                     matcher: |k| matches!(k.code, KeyCode::Char('d')),
                     action: |_| Some(KeyAction::DockerComposeDown),
                 },
+                Binding {
+                    keys: "?",
+                    description: "Show keybindings",
+                    panels: vec![],
+                    matcher: |k| matches!(k.code, KeyCode::Char('?')),
+                    action: |_| Some(KeyAction::ShowBindings),
+                },
+                Binding {
+                    keys: "Esc",
+                    description: "Close popup",
+                    panels: vec![],
+                    matcher: |k| matches!(k.code, KeyCode::Esc),
+                    action: |_| Some(KeyAction::ClosePopup),
+                },
             ],
         }
     }
@@ -149,5 +166,21 @@ impl KeyBindings {
             .iter()
             .find(|binding| (binding.matcher)(*key))
             .and_then(|binding| (binding.action)(*key))
+    }
+
+    pub fn global(&self) -> Vec<Binding> {
+        self.map
+            .iter()
+            .filter(|binding| binding.panels.is_empty())
+            .cloned()
+            .collect()
+    }
+
+    pub fn bindings_for(&self, panel: PanelId) -> Vec<Binding> {
+        self.map
+            .iter()
+            .filter(|binding| binding.panels.contains(&panel))
+            .cloned()
+            .collect()
     }
 }
