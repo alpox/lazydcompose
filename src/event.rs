@@ -19,6 +19,7 @@ pub enum Message {
     DockerComposeStop(Result<String, String>),
     DockerComposeUp(Result<String, String>),
     DockerComposeDown(Result<String, String>),
+    DockerComposeRestart(Result<String, String>),
 }
 
 /// Terminal event handler.

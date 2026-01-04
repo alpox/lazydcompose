@@ -84,6 +84,8 @@ pub fn update(model: &mut Model, msg: Message) -> Action<Message> {
         Message::DockerComposeUp(Err(err)) => note_err(model, err),
         Message::DockerComposeDown(Ok(_)) => refresh_containers(model),
         Message::DockerComposeDown(Err(err)) => note_err(model, err),
+        Message::DockerComposeRestart(Ok(_)) => refresh_containers(model),
+        Message::DockerComposeRestart(Err(err)) => note_err(model, err),
         Message::ClearNotes => {
             model.notes = model
                 .notes
@@ -128,7 +130,7 @@ pub fn subscriptions(model: &Model) -> Subscription<Message> {
         Message::RefreshProjects,
     )];
 
-    if model.notes.len() > 0 {
+    if !model.notes.is_empty() {
         subscriptions.push(Subscription::Interval(
             Duration::from_secs(1),
             Message::ClearNotes,

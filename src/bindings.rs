@@ -12,10 +12,11 @@ pub enum KeyAction {
     NextPanel,
     PrevPanel,
     SelectPanel(usize),
-    CommandSmallS,
-    CommandBigS,
-    CommandSmallD,
-    CommandSmallU,
+    DockerComposeStart,
+    DockerComposeStop,
+    DockerComposeDown,
+    DockerComposeUp,
+    DockerComposeRestart,
 }
 
 struct Binding {
@@ -96,9 +97,9 @@ impl Default for KeyBindings {
                         )
                     },
                     action: |k| match k.code {
-                        KeyCode::Char(num) => num
-                            .to_digit(10)
-                            .map(|d| KeyAction::SelectPanel(d as usize)),
+                        KeyCode::Char(num) => {
+                            num.to_digit(10).map(|d| KeyAction::SelectPanel(d as usize))
+                        }
                         _ => None,
                     },
                 },
@@ -107,30 +108,37 @@ impl Default for KeyBindings {
                     description: "Docker compose start",
                     panels: vec![PanelId::Projects],
                     matcher: |k| matches!(k.code, KeyCode::Char('s')),
-                    action: |_| Some(KeyAction::CommandSmallS)
+                    action: |_| Some(KeyAction::DockerComposeStart),
                 },
                 Binding {
                     keys: "S",
                     description: "Docker compose stop",
                     panels: vec![PanelId::Projects],
                     matcher: |k| matches!(k.code, KeyCode::Char('S')),
-                    action: |_| Some(KeyAction::CommandBigS)
+                    action: |_| Some(KeyAction::DockerComposeStop),
                 },
                 Binding {
                     keys: "u",
                     description: "Docker compose up",
                     panels: vec![PanelId::Projects],
                     matcher: |k| matches!(k.code, KeyCode::Char('u')),
-                    action: |_| Some(KeyAction::CommandSmallU)
+                    action: |_| Some(KeyAction::DockerComposeUp),
+                },
+                Binding {
+                    keys: "r",
+                    description: "Docker compose restart",
+                    panels: vec![PanelId::Projects],
+                    matcher: |k| matches!(k.code, KeyCode::Char('r')),
+                    action: |_| Some(KeyAction::DockerComposeRestart),
                 },
                 Binding {
                     keys: "d",
                     description: "Docker compose down",
                     panels: vec![PanelId::Projects],
                     matcher: |k| matches!(k.code, KeyCode::Char('d')),
-                    action: |_| Some(KeyAction::CommandSmallD)
-                }
-           ],
+                    action: |_| Some(KeyAction::DockerComposeDown),
+                },
+            ],
         }
     }
 }

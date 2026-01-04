@@ -26,7 +26,7 @@ pub fn handle_key(model: &mut Model, key: KeyEvent) -> Action<Message> {
             model.projects_table_state.fit(model.projects.len());
             refresh_containers(model)
         }
-        Some(KeyAction::CommandBigS) => {
+        Some(KeyAction::DockerComposeStop) => {
             if let Some(project) = model.selected_project() {
                 Action::Cmd(Box::new(DockerComposeAction {
                     project,
@@ -37,7 +37,7 @@ pub fn handle_key(model: &mut Model, key: KeyEvent) -> Action<Message> {
                 Action::None
             }
         }
-        Some(KeyAction::CommandSmallS) => {
+        Some(KeyAction::DockerComposeStart) => {
             if let Some(project) = model.selected_project() {
                 Action::Cmd(Box::new(DockerComposeAction {
                     project,
@@ -48,7 +48,7 @@ pub fn handle_key(model: &mut Model, key: KeyEvent) -> Action<Message> {
                 Action::None
             }
         },
-        Some(KeyAction::CommandSmallU) => {
+        Some(KeyAction::DockerComposeUp) => {
             if let Some(project) = model.selected_project() {
                 Action::Cmd(Box::new(DockerComposeAction {
                     project,
@@ -59,11 +59,22 @@ pub fn handle_key(model: &mut Model, key: KeyEvent) -> Action<Message> {
                 Action::None
             }
         }
-        Some(KeyAction::CommandSmallD) => {
+        Some(KeyAction::DockerComposeDown) => {
             if let Some(project) = model.selected_project() {
                 Action::Cmd(Box::new(DockerComposeAction {
                     project,
                     args: vec!["down".to_string()],
+                    msg_fn: Message::DockerComposeStart,
+                }))
+            } else {
+                Action::None
+            }
+        }
+        Some(KeyAction::DockerComposeRestart) => {
+            if let Some(project) = model.selected_project() {
+                Action::Cmd(Box::new(DockerComposeAction {
+                    project,
+                    args: vec!["restart".to_string()],
                     msg_fn: Message::DockerComposeStart,
                 }))
             } else {
