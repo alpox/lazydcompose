@@ -1,6 +1,5 @@
 use std::cmp::min;
 
-use itertools::Itertools;
 use ratatui::{
     buffer::Buffer,
     layout::{Constraint, Direction, Layout, Rect},
@@ -8,11 +7,7 @@ use ratatui::{
     widgets::{Block, Borders, Cell, Clear, Paragraph, Row, Table, Widget},
 };
 
-use crate::{
-    bindings::{BINDINGS, Binding},
-    model::PanelId,
-    trace_dbg,
-};
+use crate::{bindings::BINDINGS, model::PanelId};
 
 pub struct Bindings {
     active_panel: PanelId,
@@ -113,7 +108,7 @@ impl Widget for Bindings {
             ])
             .split(popup_area);
 
-        Clear.render(trace_dbg!(popup_area), buf);
+        Clear.render(popup_area, buf);
         panel_table.render(chunks[0], buf);
         global_table.render(chunks[1], buf);
         hints.render(chunks[2], buf);
