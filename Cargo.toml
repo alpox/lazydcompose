@@ -24,6 +24,7 @@ tracing-subscriber = { version = "0.3.22", features = ["env-filter"] }
 async-trait = "0.1.89"
 itertools = "0.14.0"
 regex = "1.12.2"
+textwrap = "0.16.2"
 
 # Read the optimization guideline for more details: https://ratatui.rs/recipes/apps/release-your-app/#optimizations
 [profile.release]

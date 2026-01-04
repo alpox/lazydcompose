@@ -76,7 +76,7 @@ impl<Msg> Cmd<Msg> for DockerContainerListCommand<Msg> {
 }
 
 pub struct DockerComposeAction<Msg> {
-    pub project: String,
+    pub project: Project,
     pub args: Vec<String>,
     pub msg_fn: fn(Result<String, String>) -> Msg,
 }

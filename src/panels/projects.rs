@@ -29,7 +29,7 @@ pub fn handle_key(model: &mut Model, key: KeyEvent) -> Action<Message> {
         Some(KeyAction::CommandBigS) => {
             if let Some(project) = model.selected_project() {
                 Action::Cmd(Box::new(DockerComposeAction {
-                    project: project.name,
+                    project,
                     args: vec!["stop".to_string()],
                     msg_fn: Message::DockerComposeStop,
                 }))
@@ -40,8 +40,30 @@ pub fn handle_key(model: &mut Model, key: KeyEvent) -> Action<Message> {
         Some(KeyAction::CommandSmallS) => {
             if let Some(project) = model.selected_project() {
                 Action::Cmd(Box::new(DockerComposeAction {
-                    project: project.name,
+                    project,
                     args: vec!["start".to_string()],
+                    msg_fn: Message::DockerComposeStart,
+                }))
+            } else {
+                Action::None
+            }
+        },
+        Some(KeyAction::CommandSmallU) => {
+            if let Some(project) = model.selected_project() {
+                Action::Cmd(Box::new(DockerComposeAction {
+                    project,
+                    args: vec!["up".to_string(), "-d".to_string()],
+                    msg_fn: Message::DockerComposeStop,
+                }))
+            } else {
+                Action::None
+            }
+        }
+        Some(KeyAction::CommandSmallD) => {
+            if let Some(project) = model.selected_project() {
+                Action::Cmd(Box::new(DockerComposeAction {
+                    project,
+                    args: vec!["down".to_string()],
                     msg_fn: Message::DockerComposeStart,
                 }))
             } else {

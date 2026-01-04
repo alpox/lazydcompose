@@ -14,6 +14,8 @@ pub enum KeyAction {
     SelectPanel(usize),
     CommandSmallS,
     CommandBigS,
+    CommandSmallD,
+    CommandSmallU,
 }
 
 struct Binding {
@@ -113,6 +115,20 @@ impl Default for KeyBindings {
                     panels: vec![PanelId::Projects],
                     matcher: |k| matches!(k.code, KeyCode::Char('S')),
                     action: |_| Some(KeyAction::CommandBigS)
+                },
+                Binding {
+                    keys: "u",
+                    description: "Docker compose up",
+                    panels: vec![PanelId::Projects],
+                    matcher: |k| matches!(k.code, KeyCode::Char('u')),
+                    action: |_| Some(KeyAction::CommandSmallU)
+                },
+                Binding {
+                    keys: "d",
+                    description: "Docker compose down",
+                    panels: vec![PanelId::Projects],
+                    matcher: |k| matches!(k.code, KeyCode::Char('d')),
+                    action: |_| Some(KeyAction::CommandSmallD)
                 }
            ],
         }

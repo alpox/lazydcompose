@@ -9,6 +9,7 @@ use crate::cli::{Container, Project};
 pub enum Message {
     Tick,
     Quit,
+    ClearNotes,
     KeyPress(KeyEvent),
     RefreshProjects,
     Projects(Result<Vec<Project>, String>),
@@ -16,6 +17,8 @@ pub enum Message {
     Containers(Result<Vec<Container>, String>),
     DockerComposeStart(Result<String, String>),
     DockerComposeStop(Result<String, String>),
+    DockerComposeUp(Result<String, String>),
+    DockerComposeDown(Result<String, String>),
 }
 
 /// Terminal event handler.

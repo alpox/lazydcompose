@@ -4,7 +4,10 @@ use itertools::Itertools;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 
-use color_eyre::eyre::{ContextCompat, WrapErr};
+use color_eyre::{
+    Section,
+    eyre::{ContextCompat, Error, WrapErr, eyre},
+};
 use tokio::process::Command;
 
 use crate::trace_dbg;
@@ -139,29 +142,16 @@ pub async fn docker_container_list(
         .wrap_err("Could not parse docker container list output")
 }
 
-pub async fn docker_compose_project(project_name: &str) -> Option<Project> {
-    let projects = docker_compose_ls().await.ok()?;
-
-    projects
-        .iter()
-        .find(|project| project.name == project_name)
-        .cloned()
-}
-
 pub async fn docker_compose_action(
-    project_name: String,
+    project: Project,
     args: impl IntoIterator<Item = &str>,
 ) -> color_eyre::Result<String> {
     let mut cmd_args = vec!["compose"];
     cmd_args.extend(args);
 
-    let project = docker_compose_project(&project_name)
-        .await
-        .wrap_err_with(|| format!("project '{}' not found", project_name))?;
-
     let folder = project
         .folder()
-        .wrap_err_with(|| format!("folder for project '{}' not found", project_name))?;
+        .wrap_err_with(|| format!("folder for project '{}' not found", project.name))?;
 
     let output = Command::new("docker")
         .current_dir(folder)
@@ -169,5 +159,12 @@ pub async fn docker_compose_action(
         .output()
         .await?;
 
-    String::from_utf8(output.stdout).wrap_err("docker container list returned invalid utf8")
+    if !output.status.success() {
+        let err = String::from_utf8_lossy(&output.stderr);
+        Err(eyre!("{}", err))
+    } else {
+        let out = String::from_utf8(output.stdout)
+            .wrap_err("docker container list returned invalid utf8")?;
+        Ok(out)
+    }
 }

@@ -1,4 +1,7 @@
-use ratatui::widgets::TableState;
+use std::time::Duration;
+
+use ratatui::{style::{Color, Style}, widgets::TableState};
+use tokio::time::Instant;
 
 use crate::{
     cli::{Container, Project},
@@ -29,6 +32,50 @@ pub enum RunningState {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Note {
+    pub timestamp: Instant,
+    pub duration: Duration,
+    pub text: String,
+    pub style: Style,
+}
+
+impl Default for Note {
+    fn default() -> Self {
+        Self {
+            timestamp: Instant::now(),
+            duration: Duration::from_secs(3),
+            text: Default::default(),
+            style: Default::default(),
+        }
+    }
+}
+
+impl Note {
+    pub fn new(text: String) -> Self {
+        Self {
+            timestamp: Instant::now(),
+            duration: Duration::from_secs(3),
+            style: Default::default(),
+            text
+        }
+    }
+
+    pub fn style(mut self, style: Style) -> Self {
+        self.style = style;
+        self
+    }
+
+    pub fn duration(mut self, duration: Duration) -> Self {
+        self.duration = duration;
+        self
+    }
+
+    pub fn finished(&self) -> bool {
+        self.timestamp.elapsed() >= self.duration
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Model {
     // Application data
     pub running_state: RunningState,
@@ -39,6 +86,8 @@ pub struct Model {
     pub active_panel: PanelId,
     pub projects_table_state: TableState,
     pub containers_table_state: TableState,
+
+    pub notes: Vec<Note>,
 }
 
 impl Default for Model {
@@ -51,6 +100,8 @@ impl Default for Model {
             active_panel: PanelId::default(),
             projects_table_state: TableState::default(),
             containers_table_state: TableState::default(),
+
+            notes: vec![],
         }
     }
 }

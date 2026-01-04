@@ -3,20 +3,22 @@ use std::time::Duration;
 use crossterm::event::KeyEvent;
 use ratatui::{
     Frame,
-    layout::{Constraint, Direction, Layout, Rect},
+    layout::{Constraint, Direction, Flex, Layout, Rect},
+    style::{Color, Style},
+    widgets::{Block, List, ListItem, Paragraph, Widget},
 };
 
 use crate::{
     bindings::{BINDINGS, KeyAction},
     cmd::DockerComposeLsCommand,
     event::Message,
-    model::{Action, Model, PanelId, RunningState},
+    model::{Action, Model, Note, PanelId, RunningState},
     panels::{
         containers::{self, refresh_containers},
         projects::{self},
     },
-    subs::Subscription,
-    ui::table::TableStateExt,
+    subs::{self, Subscription},
+    ui::{notes::Notes, table::TableStateExt},
 };
 
 const PANEL_ORDER: [PanelId; 2] = [PanelId::Projects, PanelId::Containers];
@@ -40,6 +42,19 @@ pub fn move_panel_selection(model: &mut Model, offset: isize) {
     }
 }
 
+fn note_styled(model: &mut Model, text: impl Into<String>, style: Style) -> Action<Message> {
+    model.notes.push(Note::new(text.into()).style(style));
+    Action::None
+}
+
+fn note_err(model: &mut Model, text: impl Into<String>) -> Action<Message> {
+    note_styled(model, text, Style::new().fg(Color::Red))
+}
+
+fn note(model: &mut Model, text: impl Into<String>) -> Action<Message> {
+    note_styled(model, text, Default::default())
+}
+
 pub fn update(model: &mut Model, msg: Message) -> Action<Message> {
     match msg {
         Message::Quit => quit(model),
@@ -53,20 +68,31 @@ pub fn update(model: &mut Model, msg: Message) -> Action<Message> {
             model.projects = projects;
             refresh_containers(model)
         }
-        Message::Projects(Err(_)) => Action::None,
+        Message::Projects(Err(err)) => note_err(model, err),
         Message::RefreshContainers => refresh_containers(model),
         Message::Containers(Ok(containers)) => {
             model.containers_table_state.fit(containers.len());
             model.containers = containers;
             Action::None
         }
-        Message::Containers(Err(_)) => Action::None,
-        Message::DockerComposeStart(_) => {
-            refresh_containers(model)
-        },
-        Message::DockerComposeStop(_) => {
-            refresh_containers(model)
-        },
+        Message::Containers(Err(err)) => note_err(model, err),
+        Message::DockerComposeStart(Ok(_)) => refresh_containers(model),
+        Message::DockerComposeStart(Err(err)) => note_err(model, err),
+        Message::DockerComposeStop(Ok(_)) => refresh_containers(model),
+        Message::DockerComposeStop(Err(err)) => note_err(model, err),
+        Message::DockerComposeUp(Ok(_)) => refresh_containers(model),
+        Message::DockerComposeUp(Err(err)) => note_err(model, err),
+        Message::DockerComposeDown(Ok(_)) => refresh_containers(model),
+        Message::DockerComposeDown(Err(err)) => note_err(model, err),
+        Message::ClearNotes => {
+            model.notes = model
+                .notes
+                .iter()
+                .filter(|note| !note.finished())
+                .cloned()
+                .collect();
+            Action::None
+        }
     }
 }
 
@@ -96,11 +122,20 @@ fn handle_key(model: &mut Model, key: KeyEvent) -> Action<Message> {
     }
 }
 
-pub fn subscriptions(_model: &Model) -> Subscription<Message> {
-    Subscription::Batch(vec![Subscription::Interval(
+pub fn subscriptions(model: &Model) -> Subscription<Message> {
+    let mut subscriptions = vec![Subscription::Interval(
         Duration::from_secs(1),
         Message::RefreshProjects,
-    )])
+    )];
+
+    if model.notes.len() > 0 {
+        subscriptions.push(Subscription::Interval(
+            Duration::from_secs(1),
+            Message::ClearNotes,
+        ))
+    }
+
+    Subscription::Batch(subscriptions)
 }
 
 struct AppLayout {
@@ -136,4 +171,6 @@ pub fn view(model: &mut Model, frame: &mut Frame) {
 
     projects::view(model, frame, layout.projects);
     containers::view(model, frame, layout.containers);
+
+    Notes::new(model.notes.clone()).render(frame.area(), frame.buffer_mut());
 }
