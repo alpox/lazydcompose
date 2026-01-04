@@ -4,13 +4,8 @@ use itertools::Itertools;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 
-use color_eyre::{
-    Section,
-    eyre::{ContextCompat, Error, WrapErr, eyre},
-};
+use color_eyre::eyre::{ContextCompat, WrapErr, eyre};
 use tokio::process::Command;
-
-use crate::trace_dbg;
 
 #[derive(Clone, Serialize, Deserialize, PartialEq, Eq, Debug)]
 pub enum State {

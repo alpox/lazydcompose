@@ -3,9 +3,9 @@ use std::time::Duration;
 use crossterm::event::KeyEvent;
 use ratatui::{
     Frame,
-    layout::{Constraint, Direction, Flex, Layout, Rect},
+    layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Style},
-    widgets::{Block, List, ListItem, Paragraph, Widget},
+    widgets::Widget,
 };
 
 use crate::{
@@ -17,7 +17,7 @@ use crate::{
         containers::{self, refresh_containers},
         projects::{self},
     },
-    subs::{self, Subscription},
+    subs::Subscription,
     ui::{notes::Notes, table::TableStateExt},
 };
 
