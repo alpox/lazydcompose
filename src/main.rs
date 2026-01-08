@@ -1,3 +1,7 @@
+use std::sync::{Arc, atomic::AtomicBool};
+
+use signal_hook::{consts::SIGINT, flag};
+
 use crate::{log::initialize_logging, app::App};
 
 pub mod app;
@@ -15,10 +19,13 @@ pub mod ui;
 
 #[tokio::main]
 async fn main() -> color_eyre::Result<()> {
+    let sigint_flag = Arc::new(AtomicBool::new(false));
+    flag::register(SIGINT, Arc::clone(&sigint_flag))?;
+
     color_eyre::install()?;
     initialize_logging()?;
     let terminal = ratatui::init();
-    let result = App::new().run(terminal).await;
+    let result = App::new(sigint_flag).run(terminal).await;
     ratatui::restore();
     result
 }

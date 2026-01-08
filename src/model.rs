@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use ratatui::{style::{Color, Style}, widgets::TableState};
+use ratatui::{style::Style, widgets::TableState};
 use tokio::time::Instant;
 
 use crate::{
@@ -56,7 +56,7 @@ impl Note {
             timestamp: Instant::now(),
             duration: Duration::from_secs(3),
             style: Default::default(),
-            text
+            text,
         }
     }
 
@@ -129,6 +129,7 @@ impl Model {
 pub enum Action<Msg> {
     None,
     Cmd(BoxedCmd<Msg>),
+    BlockingCmd(BoxedCmd<Msg>),
 }
 
 impl<Msg> Action<Msg> {
@@ -140,7 +141,8 @@ impl<Msg> Action<Msg> {
     {
         match self {
             Action::None => Action::None,
-            Action::Cmd(cmd) => Action::Cmd(map_cmd(cmd, f)),
+            Action::Cmd(cmd) => Action::Cmd(Box::new(map_cmd(cmd, f))),
+            Action::BlockingCmd(cmd) => Action::BlockingCmd(Box::new(map_cmd(cmd, f))),
         }
     }
 }

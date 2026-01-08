@@ -1,4 +1,4 @@
-use std::path::Path;
+use std::{path::Path, process::ExitStatus};
 
 use itertools::Itertools;
 use regex::Regex;
@@ -162,4 +162,44 @@ pub async fn docker_compose_action(
             .wrap_err("docker container list returned invalid utf8")?;
         Ok(out)
     }
+}
+
+pub async fn docker_action(
+    project: Project,
+    args: impl IntoIterator<Item = &str>,
+) -> color_eyre::Result<String> {
+    let folder = project
+        .folder()
+        .wrap_err_with(|| format!("folder for project '{}' not found", project.name))?;
+
+    let output = Command::new("docker")
+        .current_dir(folder)
+        .args(args)
+        .output()
+        .await?;
+
+    if !output.status.success() {
+        let err = String::from_utf8_lossy(&output.stderr);
+        Err(eyre!("{}", err))
+    } else {
+        let out = String::from_utf8(output.stdout)
+            .wrap_err("docker container list returned invalid utf8")?;
+        Ok(out)
+    }
+}
+
+pub async fn docker_action_tty(
+    project: Project,
+    args: impl IntoIterator<Item = &str>,
+) -> color_eyre::Result<ExitStatus> {
+    let folder = project
+        .folder()
+        .wrap_err_with(|| format!("folder for project '{}' not found", project.name))?;
+
+    let status = std::process::Command::new("docker")
+        .current_dir(folder)
+        .args(args)
+        .status()?;
+
+    Ok(status)
 }

@@ -10,7 +10,7 @@ use ratatui::{
 use crate::{
     bindings::{BINDINGS, KeyAction},
     cli::Container,
-    cmd::DockerContainerListCommand,
+    cmd::{DockerActionTTY, DockerContainerListCommand},
     event::Message,
     model::{Action, Model, PanelId},
     ui::{colors::Colorize, table::TableStateExt},
@@ -51,6 +51,40 @@ pub fn handle_key(model: &mut Model, key: KeyEvent) -> Action<Message> {
             model.containers_table_state.fit(model.containers.len());
             Action::None
         }
+        Some(KeyAction::DockerFollowLogs) => {
+            match (model.selected_project(), model.selected_container()) {
+                (Some(project), Some(container)) => {
+                    Action::BlockingCmd(Box::new(DockerActionTTY {
+                        project,
+                        args: vec![
+                            "logs".to_string(),
+                            "--follow".to_string(),
+                            "--since=60m".to_string(),
+                            container.id,
+                        ],
+                        msg_fn: None,
+                    }))
+                }
+                _ => Action::None,
+            }
+        }
+        Some(KeyAction::DockerConsole) => {
+            match (model.selected_project(), model.selected_container()) {
+                (Some(project), Some(container)) => {
+                    Action::BlockingCmd(Box::new(DockerActionTTY {
+                        project,
+                        args: vec![
+                            "exec".to_string(),
+                            "-it".to_string(),
+                            container.id,
+                            "/bin/sh".to_string(),
+                        ],
+                        msg_fn: None,
+                    }))
+                }
+                _ => Action::None,
+            }
+        }
         _ => Action::None,
     }
 }
@@ -80,7 +114,8 @@ pub fn view(model: &mut Model, frame: &mut Frame, area: Rect) {
             Row::new(vec![
                 Cell::from(container.names.clone()),
                 Cell::from(container.status.clone()),
-            ]).style(container.colorize())
+            ])
+            .style(container.colorize())
         })
         .collect();
 

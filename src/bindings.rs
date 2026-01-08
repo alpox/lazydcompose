@@ -17,6 +17,8 @@ pub enum KeyAction {
     DockerComposeDown,
     DockerComposeUp,
     DockerComposeRestart,
+    DockerFollowLogs,
+    DockerConsole,
     ShowBindings,
     ClosePopup,
 }
@@ -154,6 +156,20 @@ impl Default for KeyBindings {
                     panels: vec![],
                     matcher: |k| matches!(k.code, KeyCode::Esc),
                     action: |_| Some(KeyAction::ClosePopup),
+                },
+                Binding {
+                    keys: "m",
+                    description: "Docker follow logs",
+                    panels: vec![PanelId::Containers],
+                    matcher: |k| matches!(k.code, KeyCode::Char('m')),
+                    action: |_| Some(KeyAction::DockerFollowLogs),
+                },
+                Binding {
+                    keys: "E",
+                    description: "Docker console",
+                    panels: vec![PanelId::Containers],
+                    matcher: |k| matches!(k.code, KeyCode::Char('E')),
+                    action: |_| Some(KeyAction::DockerConsole),
                 },
             ],
         }

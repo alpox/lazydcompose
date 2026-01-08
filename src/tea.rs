@@ -10,7 +10,7 @@ use ratatui::{
 
 use crate::{
     bindings::{BINDINGS, KeyAction},
-    cmd::DockerComposeLsCommand,
+    cmd::{DockerComposeLsCommand},
     event::Message,
     model::{Action, Model, Note, PanelId, RunningState},
     panels::{
@@ -174,8 +174,7 @@ fn layout(area: Rect) -> AppLayout {
         .direction(Direction::Vertical)
         .constraints([
             Constraint::Percentage(33),
-            Constraint::Percentage(34),
-            Constraint::Percentage(33),
+            Constraint::Fill(1),
         ])
         .split(horizontal[0]);
 
