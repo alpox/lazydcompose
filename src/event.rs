@@ -13,8 +13,6 @@ pub enum Message {
     KeyPress(KeyEvent),
     RefreshProjects,
     Projects(Result<Vec<Project>, String>),
-    RefreshContainers,
-    Containers(Result<Vec<Container>, String>),
     DockerComposeStart(Result<String, String>),
     DockerComposeStop(Result<String, String>),
     DockerComposeUp(Result<String, String>),

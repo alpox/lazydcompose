@@ -3,8 +3,7 @@ use std::{fmt::Display, ops::Deref, process::ExitStatus};
 use async_trait::async_trait;
 
 use crate::cli::{
-    Container, Project, docker_action, docker_action_tty, docker_compose_action, docker_compose_ls,
-    docker_container_list,
+    Project, docker_action_tty, docker_get_projects, docker_project_action
 };
 
 pub trait ResultExt<T> {
@@ -66,48 +65,13 @@ where
     }
 }
 
-pub struct DockerComposeLsCommand<Msg>(pub fn(Result<Vec<Project>, String>) -> Msg);
+pub struct DockerGetProjectsCommand<Msg>(pub fn(Result<Vec<Project>, String>) -> Msg);
 
 #[async_trait]
-impl<Msg> Cmd for DockerComposeLsCommand<Msg> {
+impl<Msg> Cmd for DockerGetProjectsCommand<Msg> {
     type Msg = Msg;
     async fn exec(&self) -> Option<Msg> {
-        Some(self.0(docker_compose_ls().await.stringify_err()))
-    }
-}
-
-pub struct DockerContainerListCommand<Msg> {
-    pub args: Vec<String>,
-    pub msg_fn: fn(Result<Vec<Container>, String>) -> Msg,
-}
-
-#[async_trait]
-impl<Msg> Cmd for DockerContainerListCommand<Msg> {
-    type Msg = Msg;
-    async fn exec(&self) -> Option<Msg> {
-        let args = self.args.iter().map(String::as_str);
-        Some((self.msg_fn)(
-            docker_container_list(args).await.stringify_err(),
-        ))
-    }
-}
-
-pub struct DockerComposeAction<Msg> {
-    pub project: Project,
-    pub args: Vec<String>,
-    pub msg_fn: fn(Result<String, String>) -> Msg,
-}
-
-#[async_trait]
-impl<Msg> Cmd for DockerComposeAction<Msg> {
-    type Msg = Msg;
-    async fn exec(&self) -> Option<Msg> {
-        let args = self.args.iter().map(String::as_str);
-        Some((self.msg_fn)(
-            docker_compose_action(self.project.clone(), args)
-                .await
-                .stringify_err(),
-        ))
+        Some(self.0(docker_get_projects().await.stringify_err()))
     }
 }
 
@@ -123,7 +87,7 @@ impl<Msg> Cmd for DockerAction<Msg> {
     async fn exec(&self) -> Option<Msg> {
         let args = self.args.iter().map(String::as_str);
 
-        let result = docker_action(self.project.clone(), args)
+        let result = docker_project_action(self.project.clone(), args)
             .await
             .stringify_err();
 

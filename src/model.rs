@@ -9,6 +9,13 @@ use crate::{
 };
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
+pub enum FocusLevel {
+    #[default]
+    Project,
+    Container,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
 pub enum PanelId {
     #[default]
     Projects,
@@ -80,9 +87,9 @@ pub struct Model {
     // Application data
     pub running_state: RunningState,
     pub projects: Vec<Project>,
-    pub containers: Vec<Container>,
 
     // UI state
+    pub focus: FocusLevel,
     pub active_panel: PanelId,
     pub projects_table_state: TableState,
     pub containers_table_state: TableState,
@@ -97,8 +104,8 @@ impl Default for Model {
         Self {
             running_state: RunningState::Running,
             projects: vec![],
-            containers: vec![],
 
+            focus: FocusLevel::default(),
             active_panel: PanelId::default(),
             projects_table_state: TableState::default(),
             containers_table_state: TableState::default(),
@@ -118,11 +125,14 @@ impl Model {
             .cloned()
     }
 
+    pub fn containers(&self) -> Option<Vec<Container>> {
+        Some(self.selected_project()?.containers)
+    }
+
     pub fn selected_container(&self) -> Option<Container> {
         self.containers_table_state
             .selected()
-            .and_then(|index| self.containers.get(index))
-            .cloned()
+            .and_then(|index| self.containers().and_then(|cs| cs.get(index).cloned()))
     }
 }
 

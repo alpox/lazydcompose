@@ -10,7 +10,7 @@ use ratatui::{
 use crate::{
     bindings::{BINDINGS, KeyAction},
     cli::Container,
-    cmd::{DockerActionTTY, DockerContainerListCommand},
+    cmd::DockerActionTTY,
     event::Message,
     model::{Action, Model, PanelId},
     ui::{colors::Colorize, table::TableStateExt},
@@ -25,21 +25,6 @@ impl From<&Container> for ListItem<'_> {
     }
 }
 
-pub fn refresh_containers(model: &mut Model) -> Action<Message> {
-    let mut args: Vec<String> = vec!["-a".to_string()];
-
-    if let Some(project) = model.selected_project() {
-        let label_filter = format!("label=com.docker.compose.project={}", project.name);
-        args.push("--filter".to_string());
-        args.push(label_filter);
-    }
-
-    Action::Cmd(Box::new(DockerContainerListCommand {
-        msg_fn: Message::Containers,
-        args,
-    }))
-}
-
 pub fn handle_key(model: &mut Model, key: KeyEvent) -> Action<Message> {
     match BINDINGS.get(&key) {
         Some(KeyAction::MoveUp) => {
@@ -48,7 +33,9 @@ pub fn handle_key(model: &mut Model, key: KeyEvent) -> Action<Message> {
         }
         Some(KeyAction::MoveDown) => {
             model.containers_table_state.select_next();
-            model.containers_table_state.fit(model.containers.len());
+            if let Some(containers) = model.containers() {
+                model.containers_table_state.fit(containers.len());
+            }
             Action::None
         }
         Some(KeyAction::DockerFollowLogs) => {
@@ -100,15 +87,18 @@ pub fn view(model: &mut Model, frame: &mut Frame, area: Rect) {
             Color::DarkGray
         });
 
-    let max_name_len = model
-        .containers
+    let containers = model
+        .selected_project()
+        .map(|project| project.containers)
+        .unwrap_or_default();
+
+    let max_name_len = containers
         .iter()
         .map(|container| container.names.len())
         .max()
         .unwrap_or(0) as u16;
 
-    let rows: Vec<_> = model
-        .containers
+    let rows: Vec<_> = containers
         .iter()
         .map(|container| {
             Row::new(vec![

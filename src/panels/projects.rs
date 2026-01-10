@@ -8,10 +8,9 @@ use ratatui::{
 
 use crate::{
     bindings::{BINDINGS, KeyAction},
-    cmd::DockerComposeAction,
+    cmd::DockerAction,
     event::Message,
     model::{Action, Model, PanelId},
-    panels::containers::refresh_containers,
     ui::{colors::Colorize, table::TableStateExt},
 };
 
@@ -19,19 +18,19 @@ pub fn handle_key(model: &mut Model, key: KeyEvent) -> Action<Message> {
     match BINDINGS.get(&key) {
         Some(KeyAction::MoveUp) => {
             model.projects_table_state.select_previous();
-            refresh_containers(model)
+            Action::None
         }
         Some(KeyAction::MoveDown) => {
             model.projects_table_state.select_next();
             model.projects_table_state.fit(model.projects.len());
-            refresh_containers(model)
+            Action::None
         }
         Some(KeyAction::DockerComposeStop) => {
             if let Some(project) = model.selected_project() {
-                Action::Cmd(Box::new(DockerComposeAction {
+                Action::Cmd(Box::new(DockerAction {
                     project,
-                    args: vec!["stop".to_string()],
-                    msg_fn: Message::DockerComposeStop,
+                    args: vec!["compose".to_string(), "stop".to_string()],
+                    msg_fn: Some(Message::DockerComposeStop),
                 }))
             } else {
                 Action::None
@@ -39,21 +38,21 @@ pub fn handle_key(model: &mut Model, key: KeyEvent) -> Action<Message> {
         }
         Some(KeyAction::DockerComposeStart) => {
             if let Some(project) = model.selected_project() {
-                Action::Cmd(Box::new(DockerComposeAction {
+                Action::Cmd(Box::new(DockerAction {
                     project,
-                    args: vec!["start".to_string()],
-                    msg_fn: Message::DockerComposeStart,
+                    args: vec!["compose".to_string(), "start".to_string()],
+                    msg_fn: Some(Message::DockerComposeStart),
                 }))
             } else {
                 Action::None
             }
-        },
+        }
         Some(KeyAction::DockerComposeUp) => {
             if let Some(project) = model.selected_project() {
-                Action::Cmd(Box::new(DockerComposeAction {
+                Action::Cmd(Box::new(DockerAction {
                     project,
-                    args: vec!["up".to_string(), "-d".to_string()],
-                    msg_fn: Message::DockerComposeStop,
+                    args: vec!["compose".to_string(), "up".to_string(), "-d".to_string()],
+                    msg_fn: Some(Message::DockerComposeStop),
                 }))
             } else {
                 Action::None
@@ -61,10 +60,10 @@ pub fn handle_key(model: &mut Model, key: KeyEvent) -> Action<Message> {
         }
         Some(KeyAction::DockerComposeDown) => {
             if let Some(project) = model.selected_project() {
-                Action::Cmd(Box::new(DockerComposeAction {
+                Action::Cmd(Box::new(DockerAction {
                     project,
-                    args: vec!["down".to_string()],
-                    msg_fn: Message::DockerComposeStart,
+                    args: vec!["compose".to_string(), "down".to_string()],
+                    msg_fn: Some(Message::DockerComposeStart),
                 }))
             } else {
                 Action::None
@@ -72,10 +71,10 @@ pub fn handle_key(model: &mut Model, key: KeyEvent) -> Action<Message> {
         }
         Some(KeyAction::DockerComposeRestart) => {
             if let Some(project) = model.selected_project() {
-                Action::Cmd(Box::new(DockerComposeAction {
+                Action::Cmd(Box::new(DockerAction {
                     project,
-                    args: vec!["restart".to_string()],
-                    msg_fn: Message::DockerComposeStart,
+                    args: vec!["compose".to_string(), "restart".to_string()],
+                    msg_fn: Some(Message::DockerComposeStart),
                 }))
             } else {
                 Action::None
@@ -86,6 +85,15 @@ pub fn handle_key(model: &mut Model, key: KeyEvent) -> Action<Message> {
 }
 
 pub fn view(model: &mut Model, frame: &mut Frame, area: Rect) {
+    // let mut offset = 0;
+
+    // for project in model.projects {
+    //     let block = Block::new()
+    //         .borders(Borders::ALL)
+    //         .title(project.name.clone())
+    //         .border_style(Color::Cyan);
+    // }
+
     let block = Block::bordered()
         .title("[1] projects")
         .title_alignment(Alignment::Center)
@@ -109,7 +117,13 @@ pub fn view(model: &mut Model, frame: &mut Frame, area: Rect) {
         .map(|project| {
             Row::new(vec![
                 Cell::from(project.name.clone()),
-                Cell::from(project.status.clone()),
+                Cell::from(
+                    project
+                        .kind
+                        .as_compose()
+                        .map(|c| c.status.clone())
+                        .unwrap_or("".to_string()),
+                ),
             ])
             .style(project.colorize())
         })

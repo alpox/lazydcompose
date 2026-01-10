@@ -1,13 +1,12 @@
-use std::{path::Path, process::ExitStatus};
+use std::{collections::HashMap, path::Path, process::ExitStatus};
 
 use itertools::Itertools;
-use regex::Regex;
 use serde::{Deserialize, Serialize};
 
 use color_eyre::eyre::{ContextCompat, WrapErr, eyre};
 use tokio::process::Command;
 
-#[derive(Clone, Serialize, Deserialize, PartialEq, Eq, Debug)]
+#[derive(Clone, Serialize, Deserialize, PartialEq, Eq, Debug, Default)]
 pub enum State {
     #[serde(rename = "created")]
     Created,
@@ -17,12 +16,29 @@ pub enum State {
     Paused,
     #[serde(rename = "restarting")]
     Restarting,
+    #[default]
     #[serde(rename = "exited")]
     Exited,
     #[serde(rename = "removing")]
     Removing,
     #[serde(rename = "dead")]
     Dead,
+}
+
+#[derive(Clone, Serialize, Deserialize, PartialEq, Eq, Debug)]
+pub struct ComposeData {
+    #[serde(rename = "ConfigFiles")]
+    pub config_files: String,
+    #[serde(rename = "Status")]
+    pub status: String,
+}
+
+#[derive(Clone, Serialize, Deserialize, PartialEq, Eq, Debug)]
+#[serde(untagged)]
+pub enum ProjectKind {
+    Compose(ComposeData),
+    #[serde(skip)]
+    Standalone,
 }
 
 #[derive(Clone, Serialize, Deserialize, PartialEq, Eq, Debug)]
@@ -35,12 +51,10 @@ pub struct ProjectContainersState {
 pub struct Project {
     #[serde(rename = "Name")]
     pub name: String,
-    #[serde(rename = "Status")]
-    pub status: String,
-    #[serde(rename = "ConfigFiles")]
-    pub config_files: String,
+    #[serde(flatten)]
+    pub kind: ProjectKind,
     #[serde(skip)]
-    pub state: Vec<ProjectContainersState>,
+    pub containers: Vec<Container>,
 }
 
 #[derive(Clone, Serialize, Deserialize, PartialEq, Eq, Debug)]
@@ -60,7 +74,9 @@ pub struct Container {
     #[serde(rename = "Image")]
     pub image: String,
     #[serde(rename = "Labels")]
-    pub labels: String,
+    pub labels_raw: String,
+    #[serde(skip)]
+    pub labels: HashMap<String, String>,
     #[serde(rename = "LocalVolumes")]
     pub local_volumes: String,
     #[serde(rename = "Mounts")]
@@ -83,76 +99,28 @@ pub struct Container {
     pub status: String,
 }
 
+impl ProjectKind {
+    pub fn as_compose(&self) -> Option<&ComposeData> {
+        match self {
+            ProjectKind::Compose(compose) => Some(compose),
+            ProjectKind::Standalone => None,
+        }
+    }
+}
+
 impl Project {
     fn folder(&self) -> Option<String> {
-        let file = self.config_files.split(",").next()?.to_string();
+        let config_files = self.kind.as_compose()?.config_files.clone();
+        let file = config_files.split(",").next()?.to_string();
         Path::new(&file).parent()?.to_str().map(|v| v.to_string())
     }
 }
 
-pub async fn docker_compose_ls() -> color_eyre::Result<Vec<Project>> {
-    let output = Command::new("docker")
-        .args(["compose", "ls", "-a", "--format", "json"])
-        .output()
-        .await?;
-
-    let utf8_output =
-        String::from_utf8(output.stdout).wrap_err("Docker compose ls returned invalid utf8")?;
-
-    let mut projects = serde_json::from_str::<Vec<Project>>(&utf8_output)
-        .wrap_err("Could not parse docker compose ls output")?;
-
-    let reg = Regex::new(r"(\w+)\((\d+)\)").unwrap();
-
-    for project in &mut projects {
-        project.state = reg
-            .captures_iter(&project.status)
-            .map(|capture| capture.extract())
-            .flat_map(|(_, [state, amount])| {
-                Some(ProjectContainersState {
-                    state: serde_json::from_str::<State>(&format!("\"{}\"", state)).ok()?,
-                    amount: amount.parse::<usize>().ok()?,
-                })
-            })
-            .collect();
-    }
-
-    Ok(projects)
-}
-
-pub async fn docker_container_list(
-    args: impl IntoIterator<Item = &str>,
-) -> color_eyre::Result<Vec<Container>> {
-    let mut cmd_args = vec!["container", "list", "--format", "json"];
-    cmd_args.extend(args);
-
-    let output = Command::new("docker").args(cmd_args).output().await?;
-
-    let utf8_output =
-        String::from_utf8(output.stdout).wrap_err("docker container list returned invalid utf8")?;
-
-    let parts = format!("[{}]", utf8_output.lines().join(","));
-
-    serde_json::from_str::<Vec<Container>>(&parts)
-        .wrap_err("Could not parse docker container list output")
-}
-
-pub async fn docker_compose_action(
-    project: Project,
+pub async fn cli_action(
+    cmd: impl Into<&str>,
     args: impl IntoIterator<Item = &str>,
 ) -> color_eyre::Result<String> {
-    let mut cmd_args = vec!["compose"];
-    cmd_args.extend(args);
-
-    let folder = project
-        .folder()
-        .wrap_err_with(|| format!("folder for project '{}' not found", project.name))?;
-
-    let output = Command::new("docker")
-        .current_dir(folder)
-        .args(cmd_args)
-        .output()
-        .await?;
+    let output = Command::new(cmd.into()).args(args).output().await?;
 
     if !output.status.success() {
         let err = String::from_utf8_lossy(&output.stderr);
@@ -164,7 +132,59 @@ pub async fn docker_compose_action(
     }
 }
 
-pub async fn docker_action(
+pub async fn docker_get_projects() -> color_eyre::Result<Vec<Project>> {
+    let output = cli_action("docker", ["compose", "ls", "-a", "--format", "json"]).await?;
+
+    let mut projects = serde_json::from_str::<Vec<Project>>(&output)
+        .wrap_err("Could not parse docker compose ls output")?;
+
+    let conatiners_output =
+        cli_action("docker", ["container", "ls", "-a", "--format", "json"]).await?;
+
+    let parts = format!("[{}]", conatiners_output.lines().join(","));
+
+    let containers = serde_json::from_str::<Vec<Container>>(&parts)
+        .wrap_err("Could not parse docker container list output")?;
+
+    let mut containers_by_project: HashMap<Option<String>, Vec<Container>> = HashMap::new();
+
+    for mut container in containers {
+        container.labels = container
+            .labels_raw
+            .split(",")
+            .filter(|s| !s.is_empty())
+            .filter_map(|key_value| {
+                let (key, value) = key_value.split_once("=")?;
+                Some((key.to_string(), value.to_string()))
+            })
+            .collect();
+
+        let project_name = container.labels.get("com.docker.compose.project").cloned();
+
+        containers_by_project
+            .entry(project_name)
+            .or_default()
+            .push(container);
+    }
+
+    for project in &mut projects {
+        project.containers = containers_by_project
+            .remove(&Some(project.name.clone()))
+            .unwrap_or_default()
+    }
+
+    if let Some(standalone) = containers_by_project.remove(&None) {
+        projects.push(Project {
+            name: "(standalone)".to_string(),
+            kind: ProjectKind::Standalone,
+            containers: standalone,
+        })
+    }
+
+    Ok(projects)
+}
+
+pub async fn docker_project_action(
     project: Project,
     args: impl IntoIterator<Item = &str>,
 ) -> color_eyre::Result<String> {

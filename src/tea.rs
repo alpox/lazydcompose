@@ -10,11 +10,11 @@ use ratatui::{
 
 use crate::{
     bindings::{BINDINGS, KeyAction},
-    cmd::{DockerComposeLsCommand},
+    cmd::DockerGetProjectsCommand,
     event::Message,
     model::{Action, Model, Note, PanelId, RunningState},
     panels::{
-        containers::{self, refresh_containers},
+        containers::{self},
         projects::{self},
     },
     subs::Subscription,
@@ -65,30 +65,23 @@ pub fn update(model: &mut Model, msg: Message) -> Action<Message> {
         Message::Tick => Action::None,
         Message::KeyPress(key) => handle_key(model, key),
         Message::RefreshProjects => {
-            Action::Cmd(Box::new(DockerComposeLsCommand(Message::Projects)))
+            Action::Cmd(Box::new(DockerGetProjectsCommand(Message::Projects)))
         }
         Message::Projects(Ok(projects)) => {
             model.projects_table_state.fit(projects.len());
             model.projects = projects;
-            refresh_containers(model)
-        }
-        Message::Projects(Err(err)) => note_err(model, err),
-        Message::RefreshContainers => refresh_containers(model),
-        Message::Containers(Ok(containers)) => {
-            model.containers_table_state.fit(containers.len());
-            model.containers = containers;
             Action::None
         }
-        Message::Containers(Err(err)) => note_err(model, err),
-        Message::DockerComposeStart(Ok(_)) => refresh_containers(model),
+        Message::Projects(Err(err)) => note_err(model, err),
+        Message::DockerComposeStart(Ok(_)) => Action::None,
         Message::DockerComposeStart(Err(err)) => note_err(model, err),
-        Message::DockerComposeStop(Ok(_)) => refresh_containers(model),
+        Message::DockerComposeStop(Ok(_)) => Action::None,
         Message::DockerComposeStop(Err(err)) => note_err(model, err),
-        Message::DockerComposeUp(Ok(_)) => refresh_containers(model),
+        Message::DockerComposeUp(Ok(_)) => Action::None,
         Message::DockerComposeUp(Err(err)) => note_err(model, err),
-        Message::DockerComposeDown(Ok(_)) => refresh_containers(model),
+        Message::DockerComposeDown(Ok(_)) => Action::None,
         Message::DockerComposeDown(Err(err)) => note_err(model, err),
-        Message::DockerComposeRestart(Ok(_)) => refresh_containers(model),
+        Message::DockerComposeRestart(Ok(_)) => Action::None,
         Message::DockerComposeRestart(Err(err)) => note_err(model, err),
         Message::ClearNotes => {
             model.notes = model
@@ -172,10 +165,7 @@ fn layout(area: Rect) -> AppLayout {
 
     let vertical = Layout::default()
         .direction(Direction::Vertical)
-        .constraints([
-            Constraint::Percentage(33),
-            Constraint::Fill(1),
-        ])
+        .constraints([Constraint::Percentage(33), Constraint::Fill(1)])
         .split(horizontal[0]);
 
     AppLayout {
