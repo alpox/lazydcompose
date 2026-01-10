@@ -24,38 +24,42 @@ pub enum Message {
 
 /// Terminal event handler.
 #[derive(Debug)]
-pub struct EventHandler {
+pub struct EventHandler<Msg> {
     /// Event sender channel.
-    sender: mpsc::UnboundedSender<Message>,
+    sender: mpsc::UnboundedSender<Msg>,
     /// Event receiver channel.
-    receiver: mpsc::UnboundedReceiver<Message>,
+    receiver: mpsc::UnboundedReceiver<Msg>,
 }
 
-impl Default for EventHandler {
+impl<Msg> Default for EventHandler<Msg> {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl EventHandler {
+impl<Msg> EventHandler<Msg> {
     /// Constructs a new instance of [`EventHandler`] and spawns a new thread to handle events.
     pub fn new() -> Self {
         let (sender, receiver) = mpsc::unbounded_channel();
         Self { sender, receiver }
     }
 
-    pub async fn next(&mut self) -> color_eyre::Result<Message> {
+    pub async fn recv(&mut self) -> Option<Msg> {
+        self.receiver.recv().await
+    }
+
+    pub async fn next(&mut self) -> color_eyre::Result<Msg> {
         self.receiver
             .recv()
             .await
             .ok_or_eyre("Failed to receive event")
     }
 
-    pub fn send(&mut self, app_event: Message) {
+    pub fn send(&mut self, app_event: Msg) {
         let _ = self.sender.send(app_event);
     }
 
-    pub fn sender(&self) -> mpsc::UnboundedSender<Message> {
+    pub fn sender(&self) -> mpsc::UnboundedSender<Msg> {
         self.sender.clone()
     }
 }

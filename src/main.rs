@@ -5,6 +5,7 @@ use signal_hook::{consts::SIGINT, flag};
 use crate::{log::initialize_logging, app::App};
 
 pub mod app;
+pub mod app_mode;
 pub mod event;
 pub mod cli;
 pub mod sub_manager;

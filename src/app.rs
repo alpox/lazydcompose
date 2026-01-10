@@ -1,6 +1,15 @@
-use std::{io::{self, stdout}, sync::{Arc, atomic::{AtomicBool, Ordering}}};
+use std::{
+    io::stdout,
+    sync::{
+        Arc,
+        atomic::{AtomicBool, Ordering},
+    },
+    thread::sleep,
+    time::Duration,
+};
 
 use crate::{
+    app_mode::{AppMode, AppModeManager},
     cmd::Cmd,
     event::{EventHandler, Message},
     model::{Action, Model, RunningState},
@@ -8,6 +17,7 @@ use crate::{
     tea::{self},
 };
 use crossterm::{
+    cursor::Show,
     execute,
     terminal::{EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode},
 };
@@ -21,9 +31,10 @@ pub struct App {
     /// Counter.
     pub model: Model,
     /// Event handler.
-    pub events: EventHandler,
+    pub events: EventHandler<Message>,
     sub: SubscriptionManager<Message>,
     sigint_flag: Arc<AtomicBool>,
+    app_mode: AppModeManager,
 }
 
 impl Default for App {
@@ -32,7 +43,8 @@ impl Default for App {
             model: Model::default(),
             events: EventHandler::new(),
             sub: SubscriptionManager::new(),
-            sigint_flag: Arc::default()
+            sigint_flag: Arc::default(),
+            app_mode: AppModeManager::new(),
         }
     }
 }
@@ -67,7 +79,7 @@ impl App {
         Ok(())
     }
 
-    fn handle_message(&mut self, msg: Message) -> io::Result<bool> {
+    fn handle_message(&mut self, msg: Message) -> color_eyre::Result<bool> {
         let mut must_redraw = false;
 
         match tea::update(&mut self.model, msg) {
@@ -97,10 +109,14 @@ impl App {
         });
     }
 
-    fn run_cmd_blocking(&self, cmd: impl Cmd<Msg = Message> + 'static) -> io::Result<bool> {
+    fn run_cmd_blocking(&self, cmd: impl Cmd<Msg = Message> + 'static) -> color_eyre::Result<bool> {
         let sender = self.events.sender();
 
-        execute!(stdout(), LeaveAlternateScreen)?;
+        self.app_mode.set(AppMode::Tty);
+        // Wait for keyboard input swap
+        sleep(Duration::from_millis(20));
+
+        execute!(stdout(), LeaveAlternateScreen, Show)?;
         disable_raw_mode()?;
 
         let handle = spawn_blocking(move || {
@@ -118,6 +134,8 @@ impl App {
         enable_raw_mode()?;
         execute!(stdout(), EnterAlternateScreen)?;
 
+        self.app_mode.set(AppMode::Tui);
+
         Ok(true)
     }
 
@@ -126,21 +144,34 @@ impl App {
         let mut sub_stream = self.sub.stream();
 
         tokio::spawn(async move {
-            loop {
-                while let Some(msg) = sub_stream.next().await {
-                    let _ = sender.send(msg);
-                }
+            while let Some(msg) = sub_stream.next().await {
+                let _ = sender.send(msg);
             }
         });
     }
 
     fn process_keyboard_events(&self) {
         let sender = self.events.sender();
+        let mut app_mode_sub = self.app_mode.subscribe();
+
         tokio::spawn(async move {
-            let mut reader = crossterm::event::EventStream::new();
-            while let Some(Ok(evt)) = reader.next().await {
-                if let crossterm::event::Event::Key(key) = evt {
-                    let _ = sender.send(Message::KeyPress(key));
+            loop {
+                if !app_mode_sub.wait_for(AppMode::Tui).await {
+                    break;
+                }
+
+                let mut reader = crossterm::event::EventStream::new();
+                loop {
+                    tokio::select! {
+                        Some(AppMode::Tty) = async { app_mode_sub.changed().await } => {
+                            break;
+                        },
+                        Some(Ok(evt)) = async { reader.next().await } => {
+                            if let crossterm::event::Event::Key(key) = evt {
+                                let _ = sender.send(Message::KeyPress(key));
+                            }
+                        }
+                    }
                 }
             }
         });
