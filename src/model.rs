@@ -164,10 +164,15 @@ impl Model {
     }
 
     pub fn selected_container(&self) -> Option<Container> {
-        self.active_container_index.and_then(|index| {
-            self.selected_project_containers()
-                .and_then(|cs| cs.get(index).cloned())
-        })
+        let containers: Vec<_> = self
+            .projects
+            .iter()
+            .flat_map(|project| project.containers.clone())
+            .collect();
+
+        self.active_container_index
+            .and_then(|index| containers.get(index))
+            .cloned()
     }
 
     pub fn num_containers(&self) -> usize {
