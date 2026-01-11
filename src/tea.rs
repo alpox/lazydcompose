@@ -107,14 +107,6 @@ fn handle_key(model: &mut Model, key: KeyEvent) -> Action<Message> {
 
     match BINDINGS.get_for_context(&key, model.active_context) {
         Some(KeyAction::Quit) => quit(model),
-        Some(KeyAction::NextPanel) => {
-            move_panel_selection(model, 1);
-            Action::None
-        }
-        Some(KeyAction::PrevPanel) => {
-            move_panel_selection(model, -1);
-            Action::None
-        }
         Some(KeyAction::ShowBindings) => {
             model.active_overlay_context = Some(OverlayContextId::BindingsPopup);
             Action::None
