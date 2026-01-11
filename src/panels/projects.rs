@@ -38,7 +38,7 @@ pub fn handle_key(model: &mut Model, key: KeyEvent) -> Action<Message> {
                 Action::Cmd(Box::new(DockerAction {
                     project,
                     args: vec!["compose".to_string(), "stop".to_string()],
-                    msg_fn: Some(Message::DockerComposeStop),
+                    msg_fn: Some(Message::ActionResult),
                 }))
             } else {
                 Action::None
@@ -49,7 +49,7 @@ pub fn handle_key(model: &mut Model, key: KeyEvent) -> Action<Message> {
                 Action::Cmd(Box::new(DockerAction {
                     project,
                     args: vec!["compose".to_string(), "start".to_string()],
-                    msg_fn: Some(Message::DockerComposeStart),
+                    msg_fn: Some(Message::ActionResult),
                 }))
             } else {
                 Action::None
@@ -60,7 +60,7 @@ pub fn handle_key(model: &mut Model, key: KeyEvent) -> Action<Message> {
                 Action::Cmd(Box::new(DockerAction {
                     project,
                     args: vec!["compose".to_string(), "up".to_string(), "-d".to_string()],
-                    msg_fn: Some(Message::DockerComposeStop),
+                    msg_fn: Some(Message::ActionResult),
                 }))
             } else {
                 Action::None
@@ -71,7 +71,7 @@ pub fn handle_key(model: &mut Model, key: KeyEvent) -> Action<Message> {
                 Action::Cmd(Box::new(DockerAction {
                     project,
                     args: vec!["compose".to_string(), "down".to_string()],
-                    msg_fn: Some(Message::DockerComposeStart),
+                    msg_fn: Some(Message::ActionResult),
                 }))
             } else {
                 Action::None
@@ -82,7 +82,7 @@ pub fn handle_key(model: &mut Model, key: KeyEvent) -> Action<Message> {
                 Action::Cmd(Box::new(DockerAction {
                     project,
                     args: vec!["compose".to_string(), "restart".to_string()],
-                    msg_fn: Some(Message::DockerComposeStart),
+                    msg_fn: Some(Message::ActionResult),
                 }))
             } else {
                 Action::None

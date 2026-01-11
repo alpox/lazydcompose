@@ -1,4 +1,4 @@
-use std::{ops::ControlFlow, time::Duration};
+use std::time::Duration;
 
 use itertools::Itertools;
 use ratatui::style::Style;
@@ -7,7 +7,6 @@ use tokio::time::Instant;
 use crate::{
     cli::{Container, Project},
     cmd::{BoxedCmd, map_cmd},
-    trace_dbg,
     util::wrap_around_optional,
 };
 

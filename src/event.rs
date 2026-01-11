@@ -13,11 +13,7 @@ pub enum Message {
     KeyPress(KeyEvent),
     RefreshProjects,
     Projects(Result<Vec<Project>, String>),
-    DockerComposeStart(Result<String, String>),
-    DockerComposeStop(Result<String, String>),
-    DockerComposeUp(Result<String, String>),
-    DockerComposeDown(Result<String, String>),
-    DockerComposeRestart(Result<String, String>),
+    ActionResult(Result<String, String>),
 }
 
 /// Terminal event handler.

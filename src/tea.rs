@@ -76,16 +76,8 @@ pub fn update(model: &mut Model, msg: Message) -> Action<Message> {
             Action::None
         }
         Message::Projects(Err(err)) => note_err(model, err),
-        Message::DockerComposeStart(Ok(_)) => Action::None,
-        Message::DockerComposeStart(Err(err)) => note_err(model, err),
-        Message::DockerComposeStop(Ok(_)) => Action::None,
-        Message::DockerComposeStop(Err(err)) => note_err(model, err),
-        Message::DockerComposeUp(Ok(_)) => Action::None,
-        Message::DockerComposeUp(Err(err)) => note_err(model, err),
-        Message::DockerComposeDown(Ok(_)) => Action::None,
-        Message::DockerComposeDown(Err(err)) => note_err(model, err),
-        Message::DockerComposeRestart(Ok(_)) => Action::None,
-        Message::DockerComposeRestart(Err(err)) => note_err(model, err),
+        Message::ActionResult(Ok(_)) => Action::None,
+        Message::ActionResult(Err(err)) => note_err(model, err),
         Message::ClearNotes => {
             model.notes = model
                 .notes

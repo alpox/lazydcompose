@@ -44,7 +44,7 @@ pub fn handle_key(model: &mut Model, key: KeyEvent) -> Action<Message> {
                         "start".to_string(),
                         container.names,
                     ],
-                    msg_fn: None,
+                    msg_fn: Some(Message::ActionResult),
                 })),
                 _ => Action::None,
             }
@@ -54,7 +54,7 @@ pub fn handle_key(model: &mut Model, key: KeyEvent) -> Action<Message> {
                 (Some(project), Some(container)) => Action::Cmd(Box::new(DockerAction {
                     project,
                     args: vec!["container".to_string(), "stop".to_string(), container.names],
-                    msg_fn: None,
+                    msg_fn: Some(Message::ActionResult),
                 })),
                 _ => Action::None,
             }
@@ -68,7 +68,7 @@ pub fn handle_key(model: &mut Model, key: KeyEvent) -> Action<Message> {
                         "restart".to_string(),
                         container.names,
                     ],
-                    msg_fn: None,
+                    msg_fn: Some(Message::ActionResult),
                 })),
                 _ => Action::None,
             }
