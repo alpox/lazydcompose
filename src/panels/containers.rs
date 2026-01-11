@@ -1,19 +1,19 @@
 use crossterm::event::KeyEvent;
 use ratatui::{
     Frame,
-    layout::{Alignment, Constraint, Rect},
+    layout::{Constraint, Rect},
     style::{Color, Style},
     text::Line,
-    widgets::{Block, BorderType, Cell, ListItem, Row, Table},
+    widgets::{Cell, ListItem, Row, Table, TableState},
 };
 
 use crate::{
     bindings::{BINDINGS, KeyAction},
     cli::Container,
-    cmd::DockerActionTTY,
+    cmd::{DockerAction, DockerActionTTY},
     event::Message,
-    model::{Action, Model, PanelId},
-    ui::{colors::Colorize, table::TableStateExt},
+    model::{Action, ContextId, Model},
+    ui::colors::Colorize,
 };
 
 impl From<&Container> for ListItem<'_> {
@@ -26,17 +26,52 @@ impl From<&Container> for ListItem<'_> {
 }
 
 pub fn handle_key(model: &mut Model, key: KeyEvent) -> Action<Message> {
-    match BINDINGS.get(&key) {
+    match BINDINGS.get_for_context(&key, model.active_context) {
         Some(KeyAction::MoveUp) => {
-            model.containers_table_state.select_previous();
+            model.select_previous_container();
             Action::None
         }
         Some(KeyAction::MoveDown) => {
-            model.containers_table_state.select_next();
-            if let Some(containers) = model.containers() {
-                model.containers_table_state.fit(containers.len());
-            }
+            model.select_next_container();
             Action::None
+        }
+        Some(KeyAction::DockerContainerStart) => {
+            match (model.selected_project(), model.selected_container()) {
+                (Some(project), Some(container)) => Action::Cmd(Box::new(DockerAction {
+                    project,
+                    args: vec![
+                        "container".to_string(),
+                        "start".to_string(),
+                        container.names,
+                    ],
+                    msg_fn: None,
+                })),
+                _ => Action::None,
+            }
+        }
+        Some(KeyAction::DockerContainerStop) => {
+            match (model.selected_project(), model.selected_container()) {
+                (Some(project), Some(container)) => Action::Cmd(Box::new(DockerAction {
+                    project,
+                    args: vec!["container".to_string(), "stop".to_string(), container.names],
+                    msg_fn: None,
+                })),
+                _ => Action::None,
+            }
+        }
+        Some(KeyAction::DockerContainerRestart) => {
+            match (model.selected_project(), model.selected_container()) {
+                (Some(project), Some(container)) => Action::Cmd(Box::new(DockerAction {
+                    project,
+                    args: vec![
+                        "container".to_string(),
+                        "restart".to_string(),
+                        container.names,
+                    ],
+                    msg_fn: None,
+                })),
+                _ => Action::None,
+            }
         }
         Some(KeyAction::DockerFollowLogs) => {
             match (model.selected_project(), model.selected_container()) {
@@ -72,37 +107,31 @@ pub fn handle_key(model: &mut Model, key: KeyEvent) -> Action<Message> {
                 _ => Action::None,
             }
         }
+        Some(KeyAction::Deselect) => {
+            model.active_context = ContextId::Projects;
+            model.active_container_index = None;
+            Action::None
+        }
         _ => Action::None,
     }
 }
 
-pub fn view(model: &mut Model, frame: &mut Frame, area: Rect) {
-    let block = Block::bordered()
-        .title("[2] containers")
-        .title_alignment(Alignment::Center)
-        .border_type(BorderType::Rounded)
-        .border_style(if model.active_panel == PanelId::Containers {
-            Color::Green
-        } else {
-            Color::DarkGray
-        });
+pub fn view(model: &mut Model, project_index: usize, frame: &mut Frame, area: Rect) {
+    let project = &model.projects[project_index];
 
-    let containers = model
-        .selected_project()
-        .map(|project| project.containers)
-        .unwrap_or_default();
-
-    let max_name_len = containers
+    let max_name_len = project
+        .containers
         .iter()
-        .map(|container| container.names.len())
+        .map(|container| container.title().len())
         .max()
         .unwrap_or(0) as u16;
 
-    let rows: Vec<_> = containers
+    let rows: Vec<_> = project
+        .containers
         .iter()
         .map(|container| {
             Row::new(vec![
-                Cell::from(container.names.clone()),
+                Cell::from(container.title()),
                 Cell::from(container.status.clone()),
             ])
             .style(container.colorize())
@@ -113,9 +142,21 @@ pub fn view(model: &mut Model, frame: &mut Frame, area: Rect) {
         rows,
         [Constraint::Length(max_name_len + 1), Constraint::Fill(1)],
     )
-    .block(block)
-    .row_highlight_style(Style::new().bg(Color::Rgb(40, 40, 60)))
-    .highlight_symbol(">");
+    .row_highlight_style(Style::new().bg(Color::Rgb(50, 60, 90)).bold())
+    .highlight_symbol("▶ ");
 
-    frame.render_stateful_widget(table, area, &mut model.containers_table_state);
+    let mut table_state = TableState::new();
+
+    let is_active = model.active_context == ContextId::Containers
+        && model
+            .active_project_index
+            .map(|active| active == project_index)
+            .unwrap_or(false);
+
+    if is_active {
+        table_state
+            .select(model.project_container_index(project_index, model.active_container_index));
+    }
+
+    frame.render_stateful_widget(table, area, &mut table_state);
 }

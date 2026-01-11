@@ -12,37 +12,38 @@ use crate::{
     bindings::{BINDINGS, KeyAction},
     cmd::DockerGetProjectsCommand,
     event::Message,
-    model::{Action, Model, Note, PanelId, RunningState},
+    model::{Action, ContextId, Model, Note, OverlayContextId, RunningState},
     panels::{
         containers::{self},
         projects::{self},
     },
     subs::Subscription,
-    ui::{bindings::Bindings, notes::Notes, table::TableStateExt},
+    ui::{
+        bindings::{self, Bindings},
+        notes::Notes,
+    },
 };
 
-const PANEL_ORDER: [PanelId; 2] = [PanelId::Projects, PanelId::Containers];
+const PANEL_ORDER: [ContextId; 2] = [ContextId::Projects, ContextId::Containers];
 
 pub fn quit(model: &mut Model) -> Action<Message> {
-    if model.show_bindings_popup {
-        model.show_bindings_popup = false;
-        return Action::None;
-    }
     model.running_state = RunningState::Done;
     Action::None
 }
 
 pub fn move_panel_selection(model: &mut Model, offset: isize) {
-    let current_index = PANEL_ORDER.iter().position(|&id| id == model.active_panel);
+    let current_index = PANEL_ORDER
+        .iter()
+        .position(|&id| id == model.active_context);
     match current_index {
         Some(idx) => {
             let new_idx = idx
                 .checked_add_signed(offset)
                 .unwrap_or(0)
                 .min(PANEL_ORDER.len().saturating_sub(1));
-            model.active_panel = PANEL_ORDER[new_idx]
+            model.active_context = PANEL_ORDER[new_idx]
         }
-        None => model.active_panel = PANEL_ORDER[0],
+        None => model.active_context = PANEL_ORDER[0],
     }
 }
 
@@ -68,8 +69,10 @@ pub fn update(model: &mut Model, msg: Message) -> Action<Message> {
             Action::Cmd(Box::new(DockerGetProjectsCommand(Message::Projects)))
         }
         Message::Projects(Ok(projects)) => {
-            model.projects_table_state.fit(projects.len());
             model.projects = projects;
+            if !model.projects.is_empty() && model.active_project_index.is_none() {
+                model.active_project_index = Some(0);
+            }
             Action::None
         }
         Message::Projects(Err(err)) => note_err(model, err),
@@ -96,12 +99,15 @@ pub fn update(model: &mut Model, msg: Message) -> Action<Message> {
 }
 
 fn handle_key(model: &mut Model, key: KeyEvent) -> Action<Message> {
-    match BINDINGS.get(&key) {
+    if model.active_overlay_context.is_some() {
+        return match model.active_overlay_context {
+            Some(OverlayContextId::BindingsPopup) => bindings::handle_key(model, key),
+            None => Action::None,
+        };
+    }
+
+    match BINDINGS.get_for_context(&key, model.active_context) {
         Some(KeyAction::Quit) => quit(model),
-        Some(KeyAction::ClosePopup) => {
-            model.show_bindings_popup = false;
-            Action::None
-        }
         Some(KeyAction::NextPanel) => {
             move_panel_selection(model, 1);
             Action::None
@@ -110,20 +116,13 @@ fn handle_key(model: &mut Model, key: KeyEvent) -> Action<Message> {
             move_panel_selection(model, -1);
             Action::None
         }
-        Some(KeyAction::SelectPanel(num)) => {
-            model.active_panel = PANEL_ORDER
-                .get(num - 1)
-                .cloned()
-                .unwrap_or(model.active_panel);
-            Action::None
-        }
         Some(KeyAction::ShowBindings) => {
-            model.show_bindings_popup = true;
+            model.active_overlay_context = Some(OverlayContextId::BindingsPopup);
             Action::None
         }
-        _ => match model.active_panel {
-            PanelId::Projects => projects::handle_key(model, key),
-            PanelId::Containers => containers::handle_key(model, key),
+        _ => match model.active_context {
+            ContextId::Projects => projects::handle_key(model, key),
+            ContextId::Containers => containers::handle_key(model, key),
             _ => Action::None,
         },
     }
@@ -147,7 +146,6 @@ pub fn subscriptions(model: &Model) -> Subscription<Message> {
 
 struct AppLayout {
     pub projects: Rect,
-    pub containers: Rect,
     pub main: Rect,
     pub hints: Rect,
 }
@@ -163,14 +161,8 @@ fn layout(area: Rect) -> AppLayout {
         .constraints([Constraint::Percentage(30), Constraint::Percentage(70)])
         .split(full[0]);
 
-    let vertical = Layout::default()
-        .direction(Direction::Vertical)
-        .constraints([Constraint::Percentage(33), Constraint::Fill(1)])
-        .split(horizontal[0]);
-
     AppLayout {
-        projects: vertical[0],
-        containers: vertical[1],
+        projects: horizontal[0],
         main: horizontal[1],
         hints: full[1],
     }
@@ -180,12 +172,14 @@ pub fn view(model: &mut Model, frame: &mut Frame) {
     let layout = layout(frame.area());
 
     projects::view(model, frame, layout.projects);
-    containers::view(model, frame, layout.containers);
 
     Notes::new(model.notes.clone()).render(frame.area(), frame.buffer_mut());
 
-    if model.show_bindings_popup {
-        Bindings::new(model.active_panel).render(frame.area(), frame.buffer_mut());
+    match model.active_overlay_context {
+        Some(OverlayContextId::BindingsPopup) => {
+            Bindings::new(model.active_context).render(frame.area(), frame.buffer_mut());
+        }
+        None => {}
     }
 
     Paragraph::new("?: Keybindings").render(layout.hints, frame.buffer_mut());

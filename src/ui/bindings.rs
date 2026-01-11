@@ -1,5 +1,6 @@
 use std::cmp::min;
 
+use crossterm::event::{KeyCode, KeyEvent};
 use ratatui::{
     buffer::Buffer,
     layout::{Constraint, Direction, Layout, Rect},
@@ -7,16 +8,20 @@ use ratatui::{
     widgets::{Block, Borders, Cell, Clear, Paragraph, Row, Table, Widget},
 };
 
-use crate::{bindings::BINDINGS, model::PanelId};
+use crate::{
+    bindings::BINDINGS,
+    event::Message,
+    model::{Action, ContextId, Model},
+};
 
 pub struct Bindings {
-    active_panel: PanelId,
+    active_context: ContextId,
 }
 
 impl Bindings {
-    pub fn new(panel: PanelId) -> Self {
+    pub fn new(context: ContextId) -> Self {
         Self {
-            active_panel: panel,
+            active_context: context,
         }
     }
 }
@@ -37,7 +42,7 @@ impl Widget for Bindings {
             .border_style(Color::Cyan);
 
         let global_bindings = BINDINGS.global();
-        let panel_bindings = BINDINGS.bindings_for(self.active_panel);
+        let panel_bindings = BINDINGS.bindings_for(self.active_context);
 
         let listed_bindings = [global_bindings.clone(), panel_bindings.clone()].concat();
 
@@ -112,5 +117,15 @@ impl Widget for Bindings {
         panel_table.render(chunks[0], buf);
         global_table.render(chunks[1], buf);
         hints.render(chunks[2], buf);
+    }
+}
+
+pub fn handle_key(model: &mut Model, key: KeyEvent) -> Action<Message> {
+    match key.code {
+        KeyCode::Esc | KeyCode::Char('q') => {
+            model.active_overlay_context = None;
+            Action::None
+        }
+        _ => Action::None
     }
 }

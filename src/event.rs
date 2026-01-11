@@ -2,7 +2,7 @@ use color_eyre::eyre::OptionExt;
 use crossterm::event::KeyEvent;
 use tokio::sync::mpsc;
 
-use crate::cli::{Container, Project};
+use crate::cli::Project;
 
 /// Application events.
 #[derive(Clone, Debug, PartialEq, Eq)]

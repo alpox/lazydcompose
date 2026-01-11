@@ -99,6 +99,16 @@ pub struct Container {
     pub status: String,
 }
 
+impl Container {
+    pub fn title(&self) -> &str {
+        if let Some(service) = self.labels.get("com.docker.compose.service") {
+            service
+        } else {
+            &self.names
+        }
+    }
+}
+
 impl ProjectKind {
     pub fn as_compose(&self) -> Option<&ComposeData> {
         match self {
