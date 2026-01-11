@@ -1,6 +1,5 @@
 use std::{collections::HashMap, time::Duration};
 
-use futures::future::Pending;
 use itertools::Itertools;
 use ratatui::style::Style;
 use tokio::time::Instant;
@@ -49,7 +48,6 @@ pub enum RunningState {
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum ResourceId {
     Container(String),
-    Project(String),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -69,16 +67,6 @@ impl OperationComplete for Container {
             PendingOperation::Starting => self.state == State::Running,
             PendingOperation::Stopping => self.state == State::Exited,
             PendingOperation::Restarting => self.state == State::Running,
-        }
-    }
-}
-
-impl OperationComplete for Project {
-    fn is_complete(&self, op: &PendingOperation) -> bool {
-        match op {
-            PendingOperation::Starting => self.state() == State::Running,
-            PendingOperation::Stopping => self.state() == State::Exited,
-            PendingOperation::Restarting => self.state() == State::Running,
         }
     }
 }
@@ -279,13 +267,7 @@ impl Model {
             .filter(|(resource_id, op)| match resource_id {
                 ResourceId::Container(id) => self
                     .container_by_id(id)
-                    .map(|container| !container.is_complete(op))
-                    .unwrap_or(false),
-                ResourceId::Project(name) => self
-                    .projects
-                    .iter()
-                    .find(|project| project.name == *name)
-                    .map(|project| project.is_complete(op))
+                    .map(|container| container.is_complete(op))
                     .unwrap_or(false),
             })
             .map(|(k, _)| k.clone())
@@ -294,6 +276,10 @@ impl Model {
         for id in to_remove {
             self.pending_operations.remove(&id);
         }
+    }
+
+    pub fn has_pending_action(&self, resource_id: &ResourceId) -> bool {
+        self.pending_operations.contains_key(resource_id)
     }
 
     pub fn project_container_index(

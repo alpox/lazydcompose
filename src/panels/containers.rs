@@ -36,7 +36,7 @@ where
             model.init_pending_action(resource_id.clone(), op);
             Action::Cmd(Box::new(DockerAction {
                 project: project.clone(),
-                msg_fn: Some(Message::action_result_constructor(resource_id)),
+                msg_fn: Some(Box::new(Message::ActionResult)),
                 args: f(project, container).into(),
             }))
         }
@@ -134,8 +134,13 @@ pub fn view(model: &mut Model, project_index: usize, frame: &mut Frame, area: Re
         .containers
         .iter()
         .map(|container| {
+            let prefix = if model.has_pending_action(&ResourceId::Container(container.id.clone())) {
+                "⟳ "
+            } else {
+                ""
+            };
             Row::new(vec![
-                Cell::from(container.title()),
+                Cell::from(prefix.to_string() + container.title()),
                 Cell::from(container.status.clone()),
             ])
             .style(container.colorize())

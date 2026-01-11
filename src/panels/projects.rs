@@ -23,11 +23,12 @@ where
 {
     match model.selected_project() {
         Some(project) => {
-            let resource_id = ResourceId::Project(project.name.clone());
-            model.init_pending_action(resource_id.clone(), op);
+            for container in &project.containers {
+                model.init_pending_action(ResourceId::Container(container.id.clone()), op.clone());
+            }
             Action::Cmd(Box::new(DockerAction {
                 project: project.clone(),
-                msg_fn: Some(Message::action_result_constructor(resource_id)),
+                msg_fn: Some(Box::new(Message::ActionResult)),
                 args: f(project).into(),
             }))
         }
@@ -87,8 +88,6 @@ pub fn handle_key(model: &mut Model, key: KeyEvent) -> Action<Message> {
 }
 
 pub fn view(model: &mut Model, frame: &mut Frame, area: Rect) {
-    // let mut offset = 0;
-    //
     let constraints = model
         .projects
         .iter()
@@ -121,49 +120,4 @@ pub fn view(model: &mut Model, frame: &mut Frame, area: Rect) {
 
         containers::view(model, i, frame, inner);
     }
-
-    // let block = Block::bordered()
-    //     .title("[1] projects")
-    //     .title_alignment(Alignment::Center)
-    //     .border_type(BorderType::Rounded)
-    //     .border_style(if model.active_panel == PanelId::Projects {
-    //         Color::Green
-    //     } else {
-    //         Color::DarkGray
-    //     });
-    //
-    // let max_name_len = model
-    //     .projects
-    //     .iter()
-    //     .map(|project| project.name.len())
-    //     .max()
-    //     .unwrap_or(0) as u16;
-    //
-    // let rows: Vec<_> = model
-    //     .projects
-    //     .iter()
-    //     .map(|project| {
-    //         Row::new(vec![
-    //             Cell::from(project.name.clone()),
-    //             Cell::from(
-    //                 project
-    //                     .kind
-    //                     .as_compose()
-    //                     .map(|c| c.status.clone())
-    //                     .unwrap_or("".to_string()),
-    //             ),
-    //         ])
-    //         .style(project.colorize())
-    //     })
-    //     .collect();
-    //
-    // let table = Table::new(
-    //     rows,
-    //     [Constraint::Length(max_name_len + 1), Constraint::Fill(1)],
-    // )
-    // .block(block)
-    // .row_highlight_style(Style::new().bg(Color::Rgb(40, 40, 60)))
-    // .highlight_symbol(">");
-    //
-    // frame.render_stateful_widget(table, area, &mut model.projects_table_state);
 }
