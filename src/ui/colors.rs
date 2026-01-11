@@ -13,7 +13,7 @@ impl Colorize for State {
             State::Created => Color::Cyan,
             State::Paused => Color::Yellow,
             State::Restarting => Color::Yellow,
-            State::Exited => Color::DarkGray,
+            State::Exited => Color::White,
             State::Removing => Color::Magenta,
             State::Dead => Color::Red,
         }
