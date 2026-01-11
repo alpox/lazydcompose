@@ -78,7 +78,7 @@ impl<Msg> Cmd for DockerGetProjectsCommand<Msg> {
 pub struct DockerAction<Msg> {
     pub project: Project,
     pub args: Vec<String>,
-    pub msg_fn: Option<fn(Result<String, String>) -> Msg>,
+    pub msg_fn: Option<Box<dyn Fn(Result<String, String>) -> Msg + Send + Sync>>,
 }
 
 #[async_trait]
@@ -91,7 +91,7 @@ impl<Msg> Cmd for DockerAction<Msg> {
             .await
             .stringify_err();
 
-        self.msg_fn.map(|f| f(result))
+        self.msg_fn.as_ref().map(|f| f(result))
     }
 }
 

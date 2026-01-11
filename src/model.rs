@@ -1,11 +1,12 @@
-use std::time::Duration;
+use std::{collections::HashMap, time::Duration};
 
+use futures::future::Pending;
 use itertools::Itertools;
 use ratatui::style::Style;
 use tokio::time::Instant;
 
 use crate::{
-    cli::{Container, Project},
+    cli::{Container, Project, State},
     cmd::{BoxedCmd, map_cmd},
     util::wrap_around_optional,
 };
@@ -43,6 +44,43 @@ pub enum RunningState {
     #[default]
     Running,
     Done,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum ResourceId {
+    Container(String),
+    Project(String),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum PendingOperation {
+    Starting,
+    Stopping,
+    Restarting,
+}
+
+trait OperationComplete {
+    fn is_complete(&self, op: &PendingOperation) -> bool;
+}
+
+impl OperationComplete for Container {
+    fn is_complete(&self, op: &PendingOperation) -> bool {
+        match op {
+            PendingOperation::Starting => self.state == State::Running,
+            PendingOperation::Stopping => self.state == State::Exited,
+            PendingOperation::Restarting => self.state == State::Running,
+        }
+    }
+}
+
+impl OperationComplete for Project {
+    fn is_complete(&self, op: &PendingOperation) -> bool {
+        match op {
+            PendingOperation::Starting => self.state() == State::Running,
+            PendingOperation::Stopping => self.state() == State::Exited,
+            PendingOperation::Restarting => self.state() == State::Running,
+        }
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -89,11 +127,12 @@ impl Note {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug)]
 pub struct Model {
     // Application data
     pub running_state: RunningState,
     pub projects: Vec<Project>,
+    pub pending_operations: HashMap<ResourceId, PendingOperation>,
 
     // UI state
     pub focus: FocusLevel,
@@ -111,6 +150,7 @@ impl Default for Model {
         Self {
             running_state: RunningState::Running,
             projects: vec![],
+            pending_operations: Default::default(),
 
             focus: FocusLevel::default(),
             active_context: ContextId::default(),
@@ -212,6 +252,48 @@ impl Model {
             .take(project_index)
             .map(|project| project.containers.len())
             .sum()
+    }
+
+    pub fn init_pending_action(&mut self, resource_id: ResourceId, op: PendingOperation) {
+        self.pending_operations.insert(resource_id, op);
+    }
+
+    pub fn stop_pending_action(&mut self, resource_id: &ResourceId) {
+        self.pending_operations.remove(resource_id);
+    }
+
+    pub fn container_by_id(&self, id: &str) -> Option<Container> {
+        self.projects.iter().find_map(|project| {
+            project
+                .containers
+                .iter()
+                .find(|container| container.id == id)
+                .cloned()
+        })
+    }
+
+    pub fn update_pending_actions(&mut self) {
+        let to_remove: Vec<_> = self
+            .pending_operations
+            .iter()
+            .filter(|(resource_id, op)| match resource_id {
+                ResourceId::Container(id) => self
+                    .container_by_id(id)
+                    .map(|container| !container.is_complete(op))
+                    .unwrap_or(false),
+                ResourceId::Project(name) => self
+                    .projects
+                    .iter()
+                    .find(|project| project.name == *name)
+                    .map(|project| project.is_complete(op))
+                    .unwrap_or(false),
+            })
+            .map(|(k, _)| k.clone())
+            .collect();
+
+        for id in to_remove {
+            self.pending_operations.remove(&id);
+        }
     }
 
     pub fn project_container_index(

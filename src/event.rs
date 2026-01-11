@@ -2,7 +2,7 @@ use color_eyre::eyre::OptionExt;
 use crossterm::event::KeyEvent;
 use tokio::sync::mpsc;
 
-use crate::cli::Project;
+use crate::{cli::Project, model::ResourceId};
 
 /// Application events.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -13,7 +13,15 @@ pub enum Message {
     KeyPress(KeyEvent),
     RefreshProjects,
     Projects(Result<Vec<Project>, String>),
-    ActionResult(Result<String, String>),
+    ActionResult(Result<ResourceId, String>),
+}
+
+impl Message {
+    pub fn action_result_constructor(
+        resource_id: ResourceId,
+    ) -> Box<dyn Fn(Result<String, String>) -> Message + Send + Sync> {
+        Box::new(move |result| Message::ActionResult(result.map(|_| resource_id.clone())))
+    }
 }
 
 /// Terminal event handler.

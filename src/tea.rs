@@ -73,11 +73,18 @@ pub fn update(model: &mut Model, msg: Message) -> Action<Message> {
             if !model.projects.is_empty() && model.active_project_index.is_none() {
                 model.active_project_index = Some(0);
             }
+            model.update_pending_actions();
             Action::None
         }
         Message::Projects(Err(err)) => note_err(model, err),
-        Message::ActionResult(Ok(_)) => Action::None,
-        Message::ActionResult(Err(err)) => note_err(model, err),
+        Message::ActionResult(Ok(_)) => {
+            model.update_pending_actions();
+            Action::None
+        }
+        Message::ActionResult(Err(err)) => {
+            model.update_pending_actions();
+            note_err(model, err)
+        }
         Message::ClearNotes => {
             model.notes = model
                 .notes

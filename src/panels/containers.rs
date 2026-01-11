@@ -9,10 +9,10 @@ use ratatui::{
 
 use crate::{
     bindings::{BINDINGS, KeyAction},
-    cli::Container,
+    cli::{Container, Project},
     cmd::{DockerAction, DockerActionTTY},
     event::Message,
-    model::{Action, ContextId, Model},
+    model::{Action, ContextId, Model, PendingOperation, ResourceId},
     ui::colors::Colorize,
 };
 
@@ -22,6 +22,25 @@ impl From<&Container> for ListItem<'_> {
             format!("Container: {}", value.names),
             Color::Cyan,
         ))
+    }
+}
+
+fn docker_action<F, R>(model: &mut Model, op: PendingOperation, f: F) -> Action<Message>
+where
+    F: FnOnce(Project, Container) -> R,
+    R: Into<Vec<String>>,
+{
+    match (model.selected_project(), model.selected_container()) {
+        (Some(project), Some(container)) => {
+            let resource_id = ResourceId::Container(container.id.clone());
+            model.init_pending_action(resource_id.clone(), op);
+            Action::Cmd(Box::new(DockerAction {
+                project: project.clone(),
+                msg_fn: Some(Message::action_result_constructor(resource_id)),
+                args: f(project, container).into(),
+            }))
+        }
+        _ => Action::None,
     }
 }
 
@@ -36,42 +55,27 @@ pub fn handle_key(model: &mut Model, key: KeyEvent) -> Action<Message> {
             Action::None
         }
         Some(KeyAction::DockerContainerStart) => {
-            match (model.selected_project(), model.selected_container()) {
-                (Some(project), Some(container)) => Action::Cmd(Box::new(DockerAction {
-                    project,
-                    args: vec![
-                        "container".to_string(),
-                        "start".to_string(),
-                        container.names,
-                    ],
-                    msg_fn: Some(Message::ActionResult),
-                })),
-                _ => Action::None,
-            }
+            docker_action(model, PendingOperation::Starting, |_, container| {
+                vec![
+                    "container".to_string(),
+                    "start".to_string(),
+                    container.names,
+                ]
+            })
         }
         Some(KeyAction::DockerContainerStop) => {
-            match (model.selected_project(), model.selected_container()) {
-                (Some(project), Some(container)) => Action::Cmd(Box::new(DockerAction {
-                    project,
-                    args: vec!["container".to_string(), "stop".to_string(), container.names],
-                    msg_fn: Some(Message::ActionResult),
-                })),
-                _ => Action::None,
-            }
+            docker_action(model, PendingOperation::Stopping, |_, container| {
+                vec!["container".to_string(), "stop".to_string(), container.names]
+            })
         }
         Some(KeyAction::DockerContainerRestart) => {
-            match (model.selected_project(), model.selected_container()) {
-                (Some(project), Some(container)) => Action::Cmd(Box::new(DockerAction {
-                    project,
-                    args: vec![
-                        "container".to_string(),
-                        "restart".to_string(),
-                        container.names,
-                    ],
-                    msg_fn: Some(Message::ActionResult),
-                })),
-                _ => Action::None,
-            }
+            docker_action(model, PendingOperation::Restarting, |_, container| {
+                vec![
+                    "container".to_string(),
+                    "restart".to_string(),
+                    container.names,
+                ]
+            })
         }
         Some(KeyAction::DockerFollowLogs) => {
             match (model.selected_project(), model.selected_container()) {

@@ -8,12 +8,32 @@ use ratatui::{
 
 use crate::{
     bindings::{BINDINGS, KeyAction},
+    cli::Project,
     cmd::DockerAction,
     event::Message,
-    model::{Action, Model},
+    model::{Action, Model, PendingOperation, ResourceId},
     panels::containers::{self},
     util::wrap_around_optional,
 };
+
+fn docker_compose_action<F, R>(model: &mut Model, op: PendingOperation, f: F) -> Action<Message>
+where
+    F: FnOnce(Project) -> R,
+    R: Into<Vec<String>>,
+{
+    match model.selected_project() {
+        Some(project) => {
+            let resource_id = ResourceId::Project(project.name.clone());
+            model.init_pending_action(resource_id.clone(), op);
+            Action::Cmd(Box::new(DockerAction {
+                project: project.clone(),
+                msg_fn: Some(Message::action_result_constructor(resource_id)),
+                args: f(project).into(),
+            }))
+        }
+        _ => Action::None,
+    }
+}
 
 pub fn handle_key(model: &mut Model, key: KeyEvent) -> Action<Message> {
     match BINDINGS.get_for_context(&key, model.active_context) {
@@ -34,59 +54,29 @@ pub fn handle_key(model: &mut Model, key: KeyEvent) -> Action<Message> {
             Action::None
         }
         Some(KeyAction::DockerComposeStop) => {
-            if let Some(project) = model.selected_project() {
-                Action::Cmd(Box::new(DockerAction {
-                    project,
-                    args: vec!["compose".to_string(), "stop".to_string()],
-                    msg_fn: Some(Message::ActionResult),
-                }))
-            } else {
-                Action::None
-            }
+            docker_compose_action(model, PendingOperation::Stopping, |_| {
+                vec!["compose".to_string(), "stop".to_string()]
+            })
         }
         Some(KeyAction::DockerComposeStart) => {
-            if let Some(project) = model.selected_project() {
-                Action::Cmd(Box::new(DockerAction {
-                    project,
-                    args: vec!["compose".to_string(), "start".to_string()],
-                    msg_fn: Some(Message::ActionResult),
-                }))
-            } else {
-                Action::None
-            }
+            docker_compose_action(model, PendingOperation::Starting, |_| {
+                vec!["compose".to_string(), "start".to_string()]
+            })
         }
         Some(KeyAction::DockerComposeUp) => {
-            if let Some(project) = model.selected_project() {
-                Action::Cmd(Box::new(DockerAction {
-                    project,
-                    args: vec!["compose".to_string(), "up".to_string(), "-d".to_string()],
-                    msg_fn: Some(Message::ActionResult),
-                }))
-            } else {
-                Action::None
-            }
+            docker_compose_action(model, PendingOperation::Starting, |_| {
+                vec!["compose".to_string(), "up".to_string(), "-d".to_string()]
+            })
         }
         Some(KeyAction::DockerComposeDown) => {
-            if let Some(project) = model.selected_project() {
-                Action::Cmd(Box::new(DockerAction {
-                    project,
-                    args: vec!["compose".to_string(), "down".to_string()],
-                    msg_fn: Some(Message::ActionResult),
-                }))
-            } else {
-                Action::None
-            }
+            docker_compose_action(model, PendingOperation::Starting, |_| {
+                vec!["compose".to_string(), "down".to_string()]
+            })
         }
         Some(KeyAction::DockerComposeRestart) => {
-            if let Some(project) = model.selected_project() {
-                Action::Cmd(Box::new(DockerAction {
-                    project,
-                    args: vec!["compose".to_string(), "restart".to_string()],
-                    msg_fn: Some(Message::ActionResult),
-                }))
-            } else {
-                Action::None
-            }
+            docker_compose_action(model, PendingOperation::Starting, |_| {
+                vec!["compose".to_string(), "restart".to_string()]
+            })
         }
         Some(KeyAction::Select) => {
             model.select_project(model.active_project_index);

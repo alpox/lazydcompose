@@ -124,6 +124,14 @@ impl Project {
         let file = config_files.split(",").next()?.to_string();
         Path::new(&file).parent()?.to_str().map(|v| v.to_string())
     }
+
+    pub fn state(&self) -> State {
+        if self.containers.iter().any(|c| c.state == State::Running) {
+            return State::Running
+        }
+
+        State::Exited
+    }
 }
 
 pub async fn cli_action(
