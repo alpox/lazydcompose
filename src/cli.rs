@@ -86,7 +86,7 @@ pub struct Container {
     #[serde(rename = "Networks")]
     pub networks: String,
     #[serde(rename = "Platform")]
-    pub platform: ContainerPlatform,
+    pub platform: Option<ContainerPlatform>,
     #[serde(rename = "Ports")]
     pub ports: String,
     #[serde(rename = "RunningFor")]

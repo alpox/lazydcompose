@@ -34,3 +34,7 @@ lto = true
 opt-level = "s"
 strip = true
 
+[[bin]]
+name = "lazydcompose"
+test = false
+bench = false
