@@ -71,11 +71,11 @@ impl App {
             }
             let msg = self.events.next().await?;
 
-            let _ = terminal.draw(|frame| tea::view(&mut self.model, frame));
-
             if self.handle_message(msg)? {
                 terminal.clear()?;
             }
+
+            let _ = terminal.draw(|frame| tea::view(&mut self.model, frame));
         }
 
         Ok(())
