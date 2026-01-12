@@ -90,7 +90,12 @@ impl Widget for Notes {
                 y: current_y,
                 height: block_height,
                 ..rect
-            };
+            }
+            .intersection(area);
+
+            if block_area.is_empty() {
+                break;
+            }
 
             current_y = current_y.saturating_add(block_height as u16);
 
