@@ -12,6 +12,7 @@ pub enum Message {
     ClearNotes,
     KeyPress(KeyEvent),
     RefreshProjects,
+    Resize,
     Projects(Result<Vec<Project>, String>),
     ActionResult(Result<String, String>),
 }

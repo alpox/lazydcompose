@@ -94,6 +94,7 @@ pub fn update(model: &mut Model, msg: Message) -> Action<Message> {
                 .collect();
             Action::None
         }
+        Message::Resize => Action::None,
     }
 }
 

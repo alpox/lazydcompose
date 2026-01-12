@@ -63,14 +63,16 @@ impl App {
         self.process_subscriptions();
         self.process_keyboard_events();
 
+        let _ = terminal.draw(|frame| tea::view(&mut self.model, frame));
+
         while self.model.running_state != RunningState::Done {
             if self.sigint_flag.swap(false, Ordering::Relaxed) {
                 break;
             }
+            let msg = self.events.next().await?;
 
             let _ = terminal.draw(|frame| tea::view(&mut self.model, frame));
 
-            let msg = self.events.next().await?;
             if self.handle_message(msg)? {
                 terminal.clear()?;
             }
@@ -167,8 +169,14 @@ impl App {
                             break;
                         },
                         Some(Ok(evt)) = async { reader.next().await } => {
-                            if let crossterm::event::Event::Key(key) = evt {
-                                let _ = sender.send(Message::KeyPress(key));
+                            match evt {
+                                crossterm::event::Event::Key(key) => {
+                                    let _ = sender.send(Message::KeyPress(key));
+                                },
+                                crossterm::event::Event::Resize(_, _) => {
+                                    let _ = sender.send(Message::Resize);
+                                }
+                                _ => {}
                             }
                         }
                     }
