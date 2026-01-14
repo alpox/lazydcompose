@@ -9,19 +9,13 @@ use ratatui::{
 };
 
 use crate::{
-    bindings::{BINDINGS, KeyAction},
-    cmd::DockerGetProjectsCommand,
-    event::Message,
-    model::{Action, ContextId, Model, Note, OverlayContextId, RunningState},
-    panels::{
+    bindings::{BINDINGS, KeyAction}, cmd::DockerGetProjectsCommand, event::Message, model::{Action, ContextId, Model, Note, OverlayContextId, RunningState}, panels::{
         containers::{self},
         projects::{self},
-    },
-    subs::Subscription,
-    ui::{
+    }, subs::Subscription, trace_dbg, ui::{
         bindings::{self, Bindings},
         notes::Notes,
-    },
+    }
 };
 
 const PANEL_ORDER: [ContextId; 2] = [ContextId::Projects, ContextId::Containers];
@@ -61,6 +55,7 @@ fn note(model: &mut Model, text: impl Into<String>) -> Action<Message> {
 }
 
 pub fn update(model: &mut Model, msg: Message) -> Action<Message> {
+    trace_dbg!(&msg);
     match msg {
         Message::Quit => quit(model),
         Message::Tick => Action::None,

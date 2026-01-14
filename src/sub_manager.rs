@@ -1,15 +1,13 @@
 use std::{pin::Pin, sync::Arc};
 
-use futures::{
-    Stream, StreamExt
-};
-use tokio::{sync::{
+use futures::{Stream, StreamExt};
+use tokio::sync::{
     Mutex,
-    mpsc::{UnboundedReceiver, UnboundedSender, unbounded_channel},
-}};
-use tokio_stream::wrappers::{UnboundedReceiverStream};
+    mpsc::{self, UnboundedReceiver, UnboundedSender, unbounded_channel},
+};
+use tokio_stream::wrappers::ReceiverStream;
 
-use crate::subs::{Subscription};
+use crate::subs::Subscription;
 
 type MsgStream<Msg> = Pin<Box<dyn Stream<Item = Msg> + Send>>;
 
@@ -43,7 +41,7 @@ where
     }
 
     pub fn stream(&self) -> MsgStream<Msg> {
-        let (sender, receiver) = unbounded_channel::<Msg>();
+        let (sender, receiver) = mpsc::channel::<Msg>(1);
         let stream_receiver = self.stream_receiver.clone();
 
         tokio::spawn(async move {
@@ -62,7 +60,7 @@ where
                             None => std::future::pending().await
                         }
                     } => {
-                        if sender.send(msg).is_err() {
+                        if sender.send(msg).await.is_err() {
                             break
                         }
                     }
@@ -70,7 +68,7 @@ where
             }
         });
 
-        Box::pin(UnboundedReceiverStream::new(receiver))
+        Box::pin(ReceiverStream::new(receiver))
     }
 
     pub fn update(&mut self, sub: Subscription<Msg>) {

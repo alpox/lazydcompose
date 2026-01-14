@@ -23,8 +23,10 @@ where
         match self {
             Subscription::None => Box::pin(stream::empty()),
             Subscription::Interval(period, msg) => {
-                let interval = tokio::time::interval(*period);
+                let mut interval = tokio::time::interval(*period);
                 let message = msg.clone();
+
+                interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
 
                 Box::pin(IntervalStream::new(interval).map(move |_| message.clone()))
             }

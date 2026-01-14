@@ -144,10 +144,24 @@ impl App {
     fn process_subscriptions(&self) {
         let sender = self.events.sender();
         let mut sub_stream = self.sub.stream();
+        let mut app_mode_sub = self.app_mode.subscribe();
 
         tokio::spawn(async move {
-            while let Some(msg) = sub_stream.next().await {
-                let _ = sender.send(msg);
+            loop {
+                if !app_mode_sub.wait_for(AppMode::Tui).await {
+                    break;
+                }
+
+                loop {
+                    tokio::select! {
+                        Some(AppMode::Tty) = async { app_mode_sub.changed().await } => {
+                            break;
+                        },
+                        Some(msg) = async { sub_stream.next().await } => {
+                            let _ = sender.send(msg);
+                        }
+                    }
+                }
             }
         });
     }
