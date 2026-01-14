@@ -1,10 +1,16 @@
-use std::{collections::HashMap, path::Path, process::ExitStatus};
+use crossterm::style::Stylize;
+use std::{
+    collections::HashMap, iter, os::unix::process::ExitStatusExt, path::Path, process::ExitStatus,
+};
 
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 
 use color_eyre::eyre::{ContextCompat, WrapErr, eyre};
-use tokio::process::Command;
+use signal_hook::consts::{SIGINT, SIGTERM};
+use tokio::{process::Command, signal};
+
+use crate::trace_dbg;
 
 #[derive(Clone, Serialize, Deserialize, PartialEq, Eq, Debug, Default)]
 pub enum State {
@@ -127,7 +133,7 @@ impl Project {
 
     pub fn state(&self) -> State {
         if self.containers.iter().any(|c| c.state == State::Running) {
-            return State::Running
+            return State::Running;
         }
 
         State::Exited
@@ -234,10 +240,34 @@ pub async fn docker_action_tty(
         .folder()
         .wrap_err_with(|| format!("folder for project '{}' not found", project.name))?;
 
+    let args: Vec<_> = args.into_iter().collect();
+
+    let cmd = iter::once("docker")
+        .chain(args.iter().copied())
+        .collect::<Vec<_>>()
+        .join(" ");
+
+    println!("\n{}", format!("\n--- Executing {:?} ---", cmd).cyan());
+
     let status = std::process::Command::new("docker")
         .current_dir(folder)
-        .args(args)
+        .args(&args)
         .status()?;
+
+    let was_interrupted = status.signal() == Some(SIGINT) || status.code() == Some(130);
+
+    if !was_interrupted {
+        println!(
+            "\n{}",
+            format!(
+                "--- Command exited (code: {:?}) - Press Ctrl+C to return ---",
+                status.code()
+            )
+            .cyan(),
+        );
+
+        signal::ctrl_c().await?;
+    }
 
     Ok(status)
 }
