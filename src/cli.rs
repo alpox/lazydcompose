@@ -7,10 +7,8 @@ use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 
 use color_eyre::eyre::{ContextCompat, WrapErr, eyre};
-use signal_hook::consts::{SIGINT, SIGTERM};
+use signal_hook::consts::{SIGINT};
 use tokio::{process::Command, signal};
-
-use crate::trace_dbg;
 
 #[derive(Clone, Serialize, Deserialize, PartialEq, Eq, Debug, Default)]
 pub enum State {
