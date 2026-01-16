@@ -130,6 +130,8 @@ pub struct Model {
 
     pub active_overlay_context: Option<OverlayContextId>,
 
+    pub projects_scroll_offset: usize,
+
     pub notes: Vec<Note>,
 }
 
@@ -146,6 +148,8 @@ impl Default for Model {
             active_container_index: None,
 
             active_overlay_context: None,
+
+            projects_scroll_offset: 0,
 
             notes: vec![],
         }
@@ -219,6 +223,22 @@ impl Model {
             .map(|idx| self.project_container_offset(idx));
 
         self.correct_project_index();
+    }
+
+    pub fn select_previous_project(&mut self) {
+        self.active_project_index = wrap_around_optional(
+            self.active_project_index,
+            -1,
+            self.projects.len().saturating_sub(1),
+        );
+    }
+
+    pub fn select_next_project(&mut self) {
+        self.active_project_index = wrap_around_optional(
+            self.active_project_index,
+            1,
+            self.projects.len().saturating_sub(1),
+        );
     }
 
     pub fn select_previous_container(&mut self) {
