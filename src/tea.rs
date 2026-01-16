@@ -138,26 +138,21 @@ pub fn subscriptions(model: &Model) -> Subscription<Message> {
 
 struct AppLayout {
     pub projects: Rect,
-    pub main: Rect,
     pub hints: Rect,
 }
 
 fn layout(area: Rect) -> AppLayout {
-    let full = Layout::default()
+    let [projects, hints] = Layout::default()
         .direction(Direction::Vertical)
         .constraints([Constraint::Fill(1), Constraint::Length(1)])
-        .split(area);
+        .areas(area);
+    //
+    // let horizontal = Layout::default()
+    //     .direction(Direction::Horizontal)
+    //     .constraints([Constraint::Percentage(30), Constraint::Percentage(70)])
+    //     .split(full[0]);
 
-    let horizontal = Layout::default()
-        .direction(Direction::Horizontal)
-        .constraints([Constraint::Percentage(30), Constraint::Percentage(70)])
-        .split(full[0]);
-
-    AppLayout {
-        projects: horizontal[0],
-        main: horizontal[1],
-        hints: full[1],
-    }
+    AppLayout { projects, hints }
 }
 
 pub fn view(model: &mut Model, frame: &mut Frame) {
