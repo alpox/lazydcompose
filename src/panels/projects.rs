@@ -85,9 +85,20 @@ pub fn handle_key(model: &mut Model, key: KeyEvent) -> Effect<Message> {
             })
         }
         Some(KeyAction::DockerComposeDown) => {
-            docker_compose_action(model, PendingOperation::Starting, |_| {
-                args(["compose", "down"])
-            })
+            if let Some(project) = &model.selected_project() {
+                model.prompt(Prompt::new(
+                    "Confirm",
+                    format!(
+                        "Are you sure that you want to down the project '{}'?",
+                        project.name
+                    ),
+                    docker_compose_action(model, PendingOperation::Starting, |_| {
+                        args(["compose", "down"])
+                    }),
+                ))
+            }
+
+            Effect::None
         }
         Some(KeyAction::DockerComposeRestart) => {
             docker_compose_action(model, PendingOperation::Starting, |_| {

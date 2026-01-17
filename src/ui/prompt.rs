@@ -2,7 +2,7 @@ use crossterm::event::{KeyCode, KeyEvent};
 use ratatui::{
     buffer::Buffer,
     layout::{Constraint, Layout, Rect},
-    style::{Color, Style},
+    style::Color,
     widgets::{Block, BorderType, Borders, Clear, Paragraph, Widget, Wrap},
 };
 
