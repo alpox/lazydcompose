@@ -6,7 +6,7 @@ use tokio::time::Instant;
 
 use crate::{
     cli::{Container, Project, State},
-    cmd::{BoxedCmd, map_cmd},
+    event::Message,
     util::wrap_around_optional,
 };
 
@@ -115,6 +115,27 @@ impl Note {
     }
 }
 
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct Prompt {
+    pub title: String,
+    pub text: String,
+    pub message: Message,
+}
+
+impl Prompt {
+    pub fn new(
+        title: impl Into<String>,
+        text: impl Into<String>,
+        message: impl Into<Message>,
+    ) -> Self {
+        Self {
+            title: title.into(),
+            text: text.into(),
+            message: message.into(),
+        }
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct Model {
     // Application data
@@ -123,6 +144,8 @@ pub struct Model {
     pub pending_operations: HashMap<ResourceId, PendingOperation>,
 
     // UI state
+    pub prompt: Option<Prompt>,
+
     pub focus: FocusLevel,
     pub active_context: ContextId,
     pub active_project_index: Option<usize>,
@@ -141,6 +164,8 @@ impl Default for Model {
             running_state: RunningState::Running,
             projects: vec![],
             pending_operations: Default::default(),
+
+            prompt: Default::default(),
 
             focus: FocusLevel::default(),
             active_context: ContextId::default(),
@@ -313,69 +338,5 @@ impl Model {
         container_index: Option<usize>,
     ) -> Option<usize> {
         container_index.map(|idx| idx.saturating_sub(self.project_container_offset(project_index)))
-    }
-}
-
-pub enum Action<Msg> {
-    None,
-    Cmd(BoxedCmd<Msg>),
-    BlockingCmd(BoxedCmd<Msg>),
-}
-
-impl<Msg> Action<Msg> {
-    pub fn map<F, NewMsg>(self, f: F) -> Action<NewMsg>
-    where
-        Msg: Send + 'static,
-        NewMsg: Send + 'static,
-        F: Fn(Msg) -> NewMsg + Clone + Send + Sync + 'static,
-    {
-        match self {
-            Action::None => Action::None,
-            Action::Cmd(cmd) => Action::Cmd(Box::new(map_cmd(cmd, f))),
-            Action::BlockingCmd(cmd) => Action::BlockingCmd(Box::new(map_cmd(cmd, f))),
-        }
-    }
-}
-
-pub struct ChildAction<Msg, OutMsg>(pub Action<Msg>, pub Option<OutMsg>);
-
-pub trait ChildActionAdaptor<Model, Msg> {
-    fn adapt(self, model: &mut Model) -> Action<Msg>;
-}
-
-impl<Msg, OutMsg> ChildAction<Msg, OutMsg> {
-    pub fn none() -> Self {
-        ChildAction(Action::None, None)
-    }
-
-    pub fn out(out: OutMsg) -> Self {
-        ChildAction(Action::None, Some(out))
-    }
-
-    pub fn new(result: Action<Msg>) -> Self {
-        ChildAction(result, None)
-    }
-
-    pub fn map_msg<F, NewMsg>(self, f: F) -> ChildAction<NewMsg, OutMsg>
-    where
-        Msg: Send + 'static,
-        NewMsg: Send + 'static,
-        F: Fn(Msg) -> NewMsg + Clone + Send + Sync + 'static,
-    {
-        ChildAction(self.0.map(f), self.1)
-    }
-
-    pub fn handle_out<F>(self, handler: F) -> Action<Msg>
-    where
-        F: FnOnce(OutMsg) -> Action<Msg>,
-    {
-        match self.1 {
-            Some(out) => handler(out),
-            None => self.0,
-        }
-    }
-
-    pub fn into_inner(self) -> Action<Msg> {
-        self.0
     }
 }

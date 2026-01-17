@@ -11,13 +11,13 @@ pub mod cli;
 pub mod sub_manager;
 pub mod subs;
 pub mod log;
-pub mod cmd;
 pub mod tea;
 pub mod model;
 pub mod panels;
 pub mod bindings;
 pub mod ui;
 pub mod util;
+pub mod effect;
 
 #[tokio::main]
 async fn main() -> color_eyre::Result<()> {

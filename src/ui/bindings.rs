@@ -10,8 +10,9 @@ use ratatui::{
 
 use crate::{
     bindings::BINDINGS,
+    effect::Effect,
     event::Message,
-    model::{Action, ContextId, Model},
+    model::{ContextId, Model},
 };
 
 pub struct Bindings {
@@ -120,12 +121,12 @@ impl Widget for Bindings {
     }
 }
 
-pub fn handle_key(model: &mut Model, key: KeyEvent) -> Action<Message> {
+pub fn handle_key(model: &mut Model, key: KeyEvent) -> Effect<Message> {
     match key.code {
         KeyCode::Esc | KeyCode::Char('q') => {
             model.active_overlay_context = None;
-            Action::None
+            Effect::None
         }
-        _ => Action::None
+        _ => Effect::None,
     }
 }

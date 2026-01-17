@@ -10,9 +10,9 @@ use std::{
 
 use crate::{
     app_mode::{AppMode, AppModeManager},
-    cmd::Cmd,
+    effect::Task,
     event::{EventHandler, Message},
-    model::{Action, Model, RunningState},
+    model::{Model, RunningState},
     sub_manager::SubscriptionManager,
     tea::{self},
 };
@@ -82,17 +82,15 @@ impl App {
     }
 
     fn handle_message(&mut self, msg: Message) -> color_eyre::Result<bool> {
-        let mut must_redraw = false;
+        let effect = tea::update(&mut self.model, msg);
 
-        match tea::update(&mut self.model, msg) {
-            Action::None => {}
-            Action::Cmd(cmd) => self.run_cmd(cmd),
-            Action::BlockingCmd(cmd) => must_redraw = self.run_cmd_blocking(cmd)?,
+        if let Some(blocking_fut) = effect.process(self.events.sender()) {
+            return self.run_blocking(blocking_fut);
         }
 
         self.update_subscriptions();
 
-        Ok(must_redraw)
+        Ok(false)
     }
 
     fn update_subscriptions(&mut self) {
@@ -101,17 +99,7 @@ impl App {
         self.sub.update(sub);
     }
 
-    fn run_cmd(&self, cmd: impl Cmd<Msg = Message> + 'static) {
-        let sender = self.events.sender();
-
-        tokio::spawn(async move {
-            if let Some(msg) = cmd.exec().await {
-                let _ = sender.send(msg);
-            }
-        });
-    }
-
-    fn run_cmd_blocking(&self, cmd: impl Cmd<Msg = Message> + 'static) -> color_eyre::Result<bool> {
+    fn run_blocking(&self, fut: Task<Message>) -> color_eyre::Result<bool> {
         let sender = self.events.sender();
 
         self.app_mode.set(AppMode::Tty);
@@ -123,7 +111,7 @@ impl App {
 
         let handle = spawn_blocking(move || {
             block_on(async move {
-                if let Some(msg) = cmd.exec().await {
+                if let Some(msg) = fut.await {
                     let _ = sender.send(msg);
                 }
             })

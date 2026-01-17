@@ -8,73 +8,75 @@ use ratatui::{
 
 use crate::{
     bindings::{BINDINGS, KeyAction},
-    cli::Project,
-    cmd::DockerAction,
+    cli::{Project, docker_project_action},
+    effect::Effect,
     event::Message,
-    model::{Action, Model, PendingOperation, ResourceId},
+    model::{Model, PendingOperation, ResourceId},
     panels::containers::{self},
+    util::args,
 };
 
-fn docker_compose_action<F, R>(model: &mut Model, op: PendingOperation, f: F) -> Action<Message>
+fn docker_compose_action<F, R>(model: &mut Model, op: PendingOperation, f: F) -> Effect<Message>
 where
-    F: FnOnce(Project) -> R,
-    R: Into<Vec<String>>,
+    F: FnOnce(Project) -> R + Send + 'static,
+    R: IntoIterator<Item = String> + Send,
 {
     match model.selected_project() {
         Some(project) => {
             for container in &project.containers {
                 model.init_pending_action(ResourceId::Container(container.id.clone()), op.clone());
             }
-            Action::Cmd(Box::new(DockerAction {
-                project: project.clone(),
-                msg_fn: Some(Box::new(Message::ActionResult)),
-                args: f(project).into(),
-            }))
+
+            Effect::perform(async move {
+                let args: Vec<_> = f(project.clone()).into_iter().collect();
+                let result = docker_project_action(project, args).await;
+                Some(Message::from(result))
+            })
         }
-        _ => Action::None,
+        _ => Effect::None,
     }
 }
 
-pub fn handle_key(model: &mut Model, key: KeyEvent) -> Action<Message> {
+pub fn handle_key(model: &mut Model, key: KeyEvent) -> Effect<Message> {
     match BINDINGS.get_for_context(&key, model.active_context) {
         Some(KeyAction::MoveUp) => {
             model.select_previous_project();
-            Action::None
+            Effect::None
         }
         Some(KeyAction::MoveDown) => {
             model.select_next_project();
-            Action::None
+            Effect::None
         }
         Some(KeyAction::DockerComposeStop) => {
             docker_compose_action(model, PendingOperation::Stopping, |_| {
-                vec!["compose".to_string(), "stop".to_string()]
+                args(["compose".to_string(), "stop".to_string()])
             })
         }
         Some(KeyAction::DockerComposeStart) => {
             docker_compose_action(model, PendingOperation::Starting, |_| {
-                vec!["compose".to_string(), "start".to_string()]
+                args(["compose".to_string(), "start".to_string()])
             })
         }
         Some(KeyAction::DockerComposeUp) => {
             docker_compose_action(model, PendingOperation::Starting, |_| {
-                vec!["compose".to_string(), "up".to_string(), "-d".to_string()]
+                args(["compose".to_string(), "up".to_string(), "-d".to_string()])
             })
         }
         Some(KeyAction::DockerComposeDown) => {
             docker_compose_action(model, PendingOperation::Starting, |_| {
-                vec!["compose".to_string(), "down".to_string()]
+                args(["compose".to_string(), "down".to_string()])
             })
         }
         Some(KeyAction::DockerComposeRestart) => {
             docker_compose_action(model, PendingOperation::Starting, |_| {
-                vec!["compose".to_string(), "restart".to_string()]
+                args(["compose".to_string(), "restart".to_string()])
             })
         }
         Some(KeyAction::Select) => {
             model.select_project(model.active_project_index);
-            Action::None
+            Effect::None
         }
-        _ => Action::None,
+        _ => Effect::None,
     }
 }
 

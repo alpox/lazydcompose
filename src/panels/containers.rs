@@ -9,11 +9,12 @@ use ratatui::{
 
 use crate::{
     bindings::{BINDINGS, KeyAction},
-    cli::{Container, Project},
-    cmd::{DockerAction, DockerActionTTY},
+    cli::{Container, Project, docker_action_tty, docker_project_action},
+    effect::Effect,
     event::Message,
-    model::{Action, ContextId, Model, PendingOperation, ResourceId},
+    model::{ContextId, Model, PendingOperation, ResourceId},
     ui::colors::Colorize,
+    util::args,
 };
 
 impl From<&Container> for ListItem<'_> {
@@ -25,98 +26,82 @@ impl From<&Container> for ListItem<'_> {
     }
 }
 
-fn docker_action<F, R>(model: &mut Model, op: PendingOperation, f: F) -> Action<Message>
+fn docker_action<F, R>(model: &mut Model, op: PendingOperation, f: F) -> Effect<Message>
 where
-    F: FnOnce(Project, Container) -> R,
-    R: Into<Vec<String>>,
+    F: FnOnce(Project, Container) -> R + Send + 'static,
+    R: IntoIterator<Item = String> + Send,
 {
     match (model.selected_project(), model.selected_container()) {
         (Some(project), Some(container)) => {
             let resource_id = ResourceId::Container(container.id.clone());
             model.init_pending_action(resource_id.clone(), op);
-            Action::Cmd(Box::new(DockerAction {
-                project: project.clone(),
-                msg_fn: Some(Box::new(Message::ActionResult)),
-                args: f(project, container).into(),
-            }))
+            Effect::perform(async move {
+                let args: Vec<_> = f(project.clone(), container.clone()).into_iter().collect();
+                let result = docker_project_action(project, args).await;
+                Some(Message::from(result))
+            })
         }
-        _ => Action::None,
+        _ => Effect::None,
     }
 }
 
-pub fn handle_key(model: &mut Model, key: KeyEvent) -> Action<Message> {
+pub fn handle_key(model: &mut Model, key: KeyEvent) -> Effect<Message> {
     match BINDINGS.get_for_context(&key, model.active_context) {
         Some(KeyAction::MoveUp) => {
             model.select_previous_container();
-            Action::None
+            Effect::None
         }
         Some(KeyAction::MoveDown) => {
             model.select_next_container();
-            Action::None
+            Effect::None
         }
         Some(KeyAction::DockerContainerStart) => {
             docker_action(model, PendingOperation::Starting, |_, container| {
-                vec![
-                    "container".to_string(),
-                    "start".to_string(),
-                    container.names,
-                ]
+                args(["container", "start", container.names.as_str()])
             })
         }
         Some(KeyAction::DockerContainerStop) => {
             docker_action(model, PendingOperation::Stopping, |_, container| {
-                vec!["container".to_string(), "stop".to_string(), container.names]
+                args(["container", "stop", container.names.as_str()])
             })
         }
         Some(KeyAction::DockerContainerRestart) => {
             docker_action(model, PendingOperation::Restarting, |_, container| {
-                vec![
-                    "container".to_string(),
-                    "restart".to_string(),
-                    container.names,
-                ]
+                args(["container", "restart", container.names.as_str()])
             })
         }
         Some(KeyAction::DockerFollowLogs) => {
             match (model.selected_project(), model.selected_container()) {
-                (Some(project), Some(container)) => {
-                    Action::BlockingCmd(Box::new(DockerActionTTY {
+                (Some(project), Some(container)) => Effect::perform_blocking(async move {
+                    let _ = docker_action_tty(
                         project,
-                        args: vec![
-                            "logs".to_string(),
-                            "--follow".to_string(),
-                            "--since=60m".to_string(),
-                            container.id,
-                        ],
-                        msg_fn: None,
-                    }))
-                }
-                _ => Action::None,
+                        ["logs", "--follow", "--since=60m", container.id.as_str()],
+                    )
+                    .await;
+                    None
+                }),
+                _ => Effect::None,
             }
         }
         Some(KeyAction::DockerConsole) => {
             match (model.selected_project(), model.selected_container()) {
-                (Some(project), Some(container)) => {
-                    Action::BlockingCmd(Box::new(DockerActionTTY {
+                (Some(project), Some(container)) => Effect::perform_blocking(async move {
+                    let _ = docker_action_tty(
                         project,
-                        args: vec![
-                            "exec".to_string(),
-                            "-it".to_string(),
-                            container.id,
-                            "/bin/sh".to_string(),
-                        ],
-                        msg_fn: None,
-                    }))
-                }
-                _ => Action::None,
+                        ["exec", "-it", container.id.as_str(), "/bin/sh"],
+                    )
+                    .await;
+                    None
+                }),
+                _ => Effect::None,
             }
         }
         Some(KeyAction::Deselect) => {
             model.active_context = ContextId::Projects;
             model.active_container_index = None;
-            Action::None
+            Effect::None
         }
-        _ => Action::None,
+        _ => Effect::None,
     }
 }
 

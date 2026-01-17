@@ -10,9 +10,10 @@ use ratatui::{
 
 use crate::{
     bindings::{BINDINGS, KeyAction},
-    cmd::DockerGetProjectsCommand,
+    cli::docker_get_projects,
+    effect::Effect,
     event::Message,
-    model::{Action, ContextId, Model, Note, OverlayContextId, RunningState},
+    model::{ContextId, Model, Note, OverlayContextId, RunningState},
     panels::{
         containers::{self},
         projects::{self},
@@ -21,14 +22,16 @@ use crate::{
     ui::{
         bindings::{self, Bindings},
         notes::Notes,
+        prompt,
     },
+    util::ResultExt,
 };
 
 const PANEL_ORDER: [ContextId; 2] = [ContextId::Projects, ContextId::Containers];
 
-pub fn quit(model: &mut Model) -> Action<Message> {
+pub fn quit(model: &mut Model) -> Effect<Message> {
     model.running_state = RunningState::Done;
-    Action::None
+    Effect::None
 }
 
 pub fn move_panel_selection(model: &mut Model, offset: isize) {
@@ -47,39 +50,40 @@ pub fn move_panel_selection(model: &mut Model, offset: isize) {
     }
 }
 
-fn note_styled(model: &mut Model, text: impl Into<String>, style: Style) -> Action<Message> {
+fn note_styled(model: &mut Model, text: impl Into<String>, style: Style) -> Effect<Message> {
     model.notes.push(Note::new(text.into()).style(style));
-    Action::None
+    Effect::None
 }
 
-fn note_err(model: &mut Model, text: impl Into<String>) -> Action<Message> {
+fn note_err(model: &mut Model, text: impl Into<String>) -> Effect<Message> {
     note_styled(model, text, Style::new().fg(Color::Red))
 }
 
-fn note(model: &mut Model, text: impl Into<String>) -> Action<Message> {
-    note_styled(model, text, Default::default())
-}
+// fn note(model: &mut Model, text: impl Into<String>) -> Effect<Message> {
+//     note_styled(model, text, Default::default())
+// }
 
-pub fn update(model: &mut Model, msg: Message) -> Action<Message> {
+pub fn update(model: &mut Model, msg: Message) -> Effect<Message> {
     match msg {
         Message::Quit => quit(model),
-        Message::Tick => Action::None,
+        Message::Tick => Effect::None,
         Message::KeyPress(key) => handle_key(model, key),
-        Message::RefreshProjects => {
-            Action::Cmd(Box::new(DockerGetProjectsCommand(Message::Projects)))
-        }
+        Message::RefreshProjects => Effect::perform(async move {
+            let result = docker_get_projects().await;
+            Some(Message::Projects(result.stringify_err()))
+        }),
         Message::Projects(Ok(projects)) => {
             model.projects = projects;
             if !model.projects.is_empty() && model.active_project_index.is_none() {
                 model.active_project_index = Some(0);
             }
             model.update_pending_actions();
-            Action::None
+            Effect::None
         }
         Message::Projects(Err(err)) => note_err(model, err),
         Message::ActionResult(Ok(_)) => {
             model.update_pending_actions();
-            Action::None
+            Effect::None
         }
         Message::ActionResult(Err(err)) => {
             model.update_pending_actions();
@@ -92,17 +96,21 @@ pub fn update(model: &mut Model, msg: Message) -> Action<Message> {
                 .filter(|note| !note.finished())
                 .cloned()
                 .collect();
-            Action::None
+            Effect::None
         }
-        Message::Resize => Action::None,
+        Message::Resize => Effect::None,
+        Message::Prompt(prompt) => {
+            model.prompt = Some(*prompt);
+            Effect::None
+        }
     }
 }
 
-fn handle_key(model: &mut Model, key: KeyEvent) -> Action<Message> {
+fn handle_key(model: &mut Model, key: KeyEvent) -> Effect<Message> {
     if model.active_overlay_context.is_some() {
         return match model.active_overlay_context {
             Some(OverlayContextId::BindingsPopup) => bindings::handle_key(model, key),
-            None => Action::None,
+            None => Effect::None,
         };
     }
 
@@ -110,12 +118,12 @@ fn handle_key(model: &mut Model, key: KeyEvent) -> Action<Message> {
         Some(KeyAction::Quit) => quit(model),
         Some(KeyAction::ShowBindings) => {
             model.active_overlay_context = Some(OverlayContextId::BindingsPopup);
-            Action::None
+            Effect::None
         }
         _ => match model.active_context {
             ContextId::Projects => projects::handle_key(model, key),
             ContextId::Containers => containers::handle_key(model, key),
-            _ => Action::None,
+            _ => Effect::None,
         },
     }
 }
@@ -157,6 +165,10 @@ fn layout(area: Rect) -> AppLayout {
 
 pub fn view(model: &mut Model, frame: &mut Frame) {
     let layout = layout(frame.area());
+
+    if let Some(prompt) = model.prompt.clone() {
+        prompt::Prompt::new(prompt).render(frame.area(), frame.buffer_mut());
+    }
 
     projects::view(model, frame, layout.projects);
 

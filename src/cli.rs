@@ -208,11 +208,13 @@ pub async fn docker_get_projects() -> color_eyre::Result<Vec<Project>> {
 
 pub async fn docker_project_action(
     project: Project,
-    args: impl IntoIterator<Item = &str>,
+    args: impl IntoIterator<Item = impl AsRef<str>>,
 ) -> color_eyre::Result<String> {
     let folder = project
         .folder()
         .wrap_err_with(|| format!("folder for project '{}' not found", project.name))?;
+
+    let args: Vec<_> = args.into_iter().map(|v| v.as_ref().to_string()).collect();
 
     let output = Command::new("docker")
         .current_dir(folder)
@@ -232,16 +234,16 @@ pub async fn docker_project_action(
 
 pub async fn docker_action_tty(
     project: Project,
-    args: impl IntoIterator<Item = &str>,
+    args: impl IntoIterator<Item = impl AsRef<str>>,
 ) -> color_eyre::Result<ExitStatus> {
     let folder = project
         .folder()
         .wrap_err_with(|| format!("folder for project '{}' not found", project.name))?;
 
-    let args: Vec<_> = args.into_iter().collect();
+    let args: Vec<_> = args.into_iter().map(|v| v.as_ref().to_string()).collect();
 
     let cmd = iter::once("docker")
-        .chain(args.iter().copied())
+        .chain(args.iter().map(String::as_str))
         .collect::<Vec<_>>()
         .join(" ");
 
