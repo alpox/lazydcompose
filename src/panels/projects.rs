@@ -7,13 +7,7 @@ use ratatui::{
 };
 
 use crate::{
-    bindings::{BINDINGS, KeyAction},
-    cli::{Project, docker_project_action},
-    effect::Effect,
-    event::Message,
-    model::{Model, PendingOperation, Prompt, ResourceId},
-    panels::containers::{self},
-    util::args,
+    bindings::{BINDINGS, KeyAction}, cli::{Project, docker_project_action}, effect::Effect, event::Message, model::{Model, PendingOperation, Prompt, ResourceId}, panels::containers::{self}, ui::colors::Colorize, util::args
 };
 
 fn docker_compose_action<F, R>(model: &Model, op: PendingOperation, f: F) -> Effect<Message>
@@ -173,7 +167,7 @@ pub fn view(model: &mut Model, frame: &mut Frame, area: Rect) {
                 },
             )
             .title(project.name.clone())
-            .border_style(Color::Cyan);
+            .border_style(project.colorize());
 
         let inner = block.inner(*area);
         frame.render_widget(block, *area);

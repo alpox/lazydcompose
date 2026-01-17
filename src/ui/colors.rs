@@ -37,7 +37,17 @@ impl Colorize for Project {
         //     .map(|s| s.colorize())
         //     .unwrap_or(Color::DarkGray)
         //
-        Color::Cyan
+        let running = self
+            .containers
+            .iter()
+            .filter(|container| container.state == State::Running)
+            .count();
+
+        match running {
+            r if r == self.containers.len() => Color::Green,
+            r if r > 0 => Color::Yellow,
+            _ => Color::White
+        }
     }
 }
 
