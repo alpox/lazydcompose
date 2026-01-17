@@ -2,7 +2,7 @@ use crossterm::event::{KeyCode, KeyEvent};
 use ratatui::{
     buffer::Buffer,
     layout::{Constraint, Layout, Rect},
-    style::Color,
+    style::{Color, Style},
     widgets::{Block, BorderType, Borders, Clear, Paragraph, Widget, Wrap},
 };
 
@@ -56,9 +56,11 @@ impl<'a> Widget for Prompt<'a> {
         let [block_area, bindings] =
             Layout::vertical([Constraint::Fill(1), Constraint::Length(1)]).areas(popup_rect);
 
-        let hints = Paragraph::new("Esc: Cancel, Enter: Accept").centered();
+        let hints = Paragraph::new("Esc: Cancel, Enter: Accept")
+            .centered()
+            .style(Color::White);
 
-        Clear.render(block_area, buf);
+        Clear.render(popup_rect, buf);
         paragraph.render(block_area, buf);
         hints.render(bindings, buf);
     }
