@@ -11,27 +11,38 @@ use crate::{
     cli::{Project, docker_project_action},
     effect::Effect,
     event::Message,
-    model::{Model, PendingOperation, ResourceId},
+    model::{Model, PendingOperation, Prompt, ResourceId},
     panels::containers::{self},
     util::args,
 };
 
-fn docker_compose_action<F, R>(model: &mut Model, op: PendingOperation, f: F) -> Effect<Message>
+fn docker_compose_action<F, R>(model: &Model, op: PendingOperation, f: F) -> Effect<Message>
 where
     F: FnOnce(Project) -> R + Send + 'static,
     R: IntoIterator<Item = String> + Send,
 {
     match model.selected_project() {
         Some(project) => {
-            for container in &project.containers {
-                model.init_pending_action(ResourceId::Container(container.id.clone()), op.clone());
-            }
+            let mut effects: Vec<_> = project
+                .containers
+                .iter()
+                .map(|container| {
+                    Effect::Dispatch(Message::InitPending(
+                        ResourceId::Container(container.id.clone()),
+                        op.clone(),
+                    ))
+                })
+                .collect();
 
-            Effect::perform(async move {
+            let async_effect = Effect::perform(async move {
                 let args: Vec<_> = f(project.clone()).into_iter().collect();
                 let result = docker_project_action(project, args).await;
                 Some(Message::from(result))
-            })
+            });
+
+            effects.push(async_effect);
+
+            Effect::Batch(effects)
         }
         _ => Effect::None,
     }
@@ -48,28 +59,39 @@ pub fn handle_key(model: &mut Model, key: KeyEvent) -> Effect<Message> {
             Effect::None
         }
         Some(KeyAction::DockerComposeStop) => {
-            docker_compose_action(model, PendingOperation::Stopping, |_| {
-                args(["compose".to_string(), "stop".to_string()])
-            })
+            if let Some(project) = &model.selected_project() {
+                model.prompt(Prompt::new(
+                    "Confirm",
+                    format!(
+                        "Are you sure that you want to stop the project '{}'?",
+                        project.name
+                    ),
+                    docker_compose_action(model, PendingOperation::Stopping, |_| {
+                        args(["compose", "stop"])
+                    }),
+                ))
+            }
+
+            Effect::None
         }
         Some(KeyAction::DockerComposeStart) => {
             docker_compose_action(model, PendingOperation::Starting, |_| {
-                args(["compose".to_string(), "start".to_string()])
+                args(["compose", "start"])
             })
         }
         Some(KeyAction::DockerComposeUp) => {
             docker_compose_action(model, PendingOperation::Starting, |_| {
-                args(["compose".to_string(), "up".to_string(), "-d".to_string()])
+                args(["compose", "up", "-d"])
             })
         }
         Some(KeyAction::DockerComposeDown) => {
             docker_compose_action(model, PendingOperation::Starting, |_| {
-                args(["compose".to_string(), "down".to_string()])
+                args(["compose", "down"])
             })
         }
         Some(KeyAction::DockerComposeRestart) => {
             docker_compose_action(model, PendingOperation::Starting, |_| {
-                args(["compose".to_string(), "restart".to_string()])
+                args(["compose", "restart"])
             })
         }
         Some(KeyAction::Select) => {

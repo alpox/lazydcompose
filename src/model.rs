@@ -1,3 +1,4 @@
+use std::fmt::Debug;
 use std::{collections::HashMap, time::Duration};
 
 use itertools::Itertools;
@@ -6,6 +7,7 @@ use tokio::time::Instant;
 
 use crate::{
     cli::{Container, Project, State},
+    effect::Effect,
     event::Message,
     util::wrap_around_optional,
 };
@@ -22,12 +24,12 @@ pub enum ContextId {
     #[default]
     Projects,
     Containers,
-    Logs,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum OverlayContextId {
     BindingsPopup,
+    Prompt,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
@@ -115,28 +117,32 @@ impl Note {
     }
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Prompt {
     pub title: String,
     pub text: String,
-    pub message: Message,
+    pub then: Effect<Message>,
 }
 
 impl Prompt {
-    pub fn new(
-        title: impl Into<String>,
-        text: impl Into<String>,
-        message: impl Into<Message>,
-    ) -> Self {
+    pub fn new(title: impl Into<String>, text: impl Into<String>, then: Effect<Message>) -> Self {
         Self {
             title: title.into(),
             text: text.into(),
-            message: message.into(),
+            then,
         }
     }
 }
 
-#[derive(Clone, Debug)]
+impl Debug for Prompt {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Prompt")
+            .field("title", &self.title)
+            .field("text", &self.text)
+            .finish()
+    }
+}
+
+#[derive(Debug)]
 pub struct Model {
     // Application data
     pub running_state: RunningState,
@@ -338,5 +344,20 @@ impl Model {
         container_index: Option<usize>,
     ) -> Option<usize> {
         container_index.map(|idx| idx.saturating_sub(self.project_container_offset(project_index)))
+    }
+
+    pub fn prompt(&mut self, prompt: Prompt) {
+        self.prompt = Some(prompt);
+        self.active_overlay_context = Some(OverlayContextId::Prompt);
+    }
+
+    pub fn take_prompt(&mut self) -> Option<Prompt> {
+        self.active_overlay_context = None;
+        self.prompt.take()
+    }
+
+    pub fn close_prompt(&mut self) {
+        self.prompt = None;
+        self.active_overlay_context = None;
     }
 }

@@ -1,4 +1,6 @@
 use futures::future::BoxFuture;
+use itertools::Itertools;
+use std::fmt::Debug;
 use tokio::sync::mpsc::UnboundedSender;
 
 pub type Task<Msg> = BoxFuture<'static, Option<Msg>>;
@@ -9,6 +11,18 @@ pub enum Effect<Msg: Send> {
     Async(Task<Msg>),
     Batch(Vec<Effect<Msg>>),
     Blocking(Task<Msg>),
+}
+
+impl<Msg: Send + Debug> Debug for Effect<Msg> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::None => write!(f, "None"),
+            Self::Dispatch(arg0) => f.debug_tuple("Dispatch").field(arg0).finish(),
+            Self::Async(_) => f.debug_tuple("Async").finish(),
+            Self::Batch(arg0) => f.debug_tuple("Batch").field(arg0).finish(),
+            Self::Blocking(_) => f.debug_tuple("Blocking").finish(),
+        }
+    }
 }
 
 impl<Msg> Effect<Msg>
@@ -39,7 +53,15 @@ where
                 None
             }
             Self::Batch(effects) => {
-                for effect in effects {
+                let sorted_effects = effects.into_iter().sorted_by_key(|e| match e {
+                    Effect::None => 0,
+                    Effect::Batch(_) => 1,
+                    Effect::Dispatch(_) => 2,
+                    Effect::Async(_) => 3,
+                    Effect::Blocking(_) => 4,
+                });
+
+                for effect in sorted_effects {
                     effect.process(sender.clone());
                 }
                 None

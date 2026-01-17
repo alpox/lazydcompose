@@ -34,7 +34,7 @@ where
 
 impl<Msg> SubscriptionManager<Msg>
 where
-    Msg: Sync + PartialEq + Clone + Send + 'static + std::fmt::Debug,
+    Msg: PartialEq + Clone + Send + 'static + std::fmt::Debug,
 {
     pub fn new() -> Self {
         Self::default()

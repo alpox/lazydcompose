@@ -12,7 +12,7 @@ use crate::{
     cli::{Container, Project, docker_action_tty, docker_project_action},
     effect::Effect,
     event::Message,
-    model::{ContextId, Model, PendingOperation, ResourceId},
+    model::{ContextId, Model, PendingOperation, Prompt, ResourceId},
     ui::colors::Colorize,
     util::args,
 };
@@ -26,7 +26,7 @@ impl From<&Container> for ListItem<'_> {
     }
 }
 
-fn docker_action<F, R>(model: &mut Model, op: PendingOperation, f: F) -> Effect<Message>
+fn docker_action<F, R>(model: &Model, op: PendingOperation, f: F) -> Effect<Message>
 where
     F: FnOnce(Project, Container) -> R + Send + 'static,
     R: IntoIterator<Item = String> + Send,
@@ -34,12 +34,14 @@ where
     match (model.selected_project(), model.selected_container()) {
         (Some(project), Some(container)) => {
             let resource_id = ResourceId::Container(container.id.clone());
-            model.init_pending_action(resource_id.clone(), op);
-            Effect::perform(async move {
-                let args: Vec<_> = f(project.clone(), container.clone()).into_iter().collect();
-                let result = docker_project_action(project, args).await;
-                Some(Message::from(result))
-            })
+            Effect::Batch(vec![
+                Effect::Dispatch(Message::InitPending(resource_id, op)),
+                Effect::perform(async move {
+                    let args: Vec<_> = f(project.clone(), container.clone()).into_iter().collect();
+                    let result = docker_project_action(project, args).await;
+                    Some(Message::from(result))
+                }),
+            ])
         }
         _ => Effect::None,
     }
@@ -61,9 +63,20 @@ pub fn handle_key(model: &mut Model, key: KeyEvent) -> Effect<Message> {
             })
         }
         Some(KeyAction::DockerContainerStop) => {
-            docker_action(model, PendingOperation::Stopping, |_, container| {
-                args(["container", "stop", container.names.as_str()])
-            })
+            if let Some(container) = &model.selected_container() {
+                model.prompt(Prompt::new(
+                    "Confirm",
+                    format!(
+                        "Are you sure that you want to stop the container '{}'?",
+                        container.names
+                    ),
+                    docker_action(model, PendingOperation::Stopping, |_, container| {
+                        args(["container", "stop", container.names.as_str()])
+                    }),
+                ))
+            }
+
+            Effect::None
         }
         Some(KeyAction::DockerContainerRestart) => {
             docker_action(model, PendingOperation::Restarting, |_, container| {

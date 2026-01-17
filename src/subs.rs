@@ -17,7 +17,7 @@ pub enum Subscription<Msg> {
 
 impl<Msg> Subscription<Msg>
 where
-    Msg: Send + Sync + Clone + 'static,
+    Msg: Send + Clone + 'static,
 {
     pub fn build_stream(&self) -> MsgStream<Msg> {
         match self {

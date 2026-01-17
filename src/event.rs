@@ -4,7 +4,11 @@ use color_eyre::eyre::OptionExt;
 use crossterm::event::KeyEvent;
 use tokio::sync::mpsc;
 
-use crate::{cli::Project, model::Prompt, util::ResultExt};
+use crate::{
+    cli::Project,
+    model::{PendingOperation, ResourceId},
+    util::ResultExt,
+};
 
 /// Application events.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -15,9 +19,9 @@ pub enum Message {
     KeyPress(KeyEvent),
     RefreshProjects,
     Resize,
+    InitPending(ResourceId, PendingOperation),
     Projects(Result<Vec<Project>, String>),
     ActionResult(Result<String, String>),
-    Prompt(Box<Prompt>),
 }
 
 impl<Err: Display> From<Result<String, Err>> for Message {
