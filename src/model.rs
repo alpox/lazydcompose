@@ -13,13 +13,6 @@ use crate::{
 };
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
-pub enum FocusLevel {
-    #[default]
-    Project,
-    Container,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
 pub enum ContextId {
     #[default]
     Projects,
@@ -30,14 +23,6 @@ pub enum ContextId {
 pub enum OverlayContextId {
     BindingsPopup,
     Prompt,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
-pub enum PanelSize {
-    #[default]
-    Normal,
-    Expanded,
-    Collapsed,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -152,7 +137,6 @@ pub struct Model {
     // UI state
     pub prompt: Option<Prompt>,
 
-    pub focus: FocusLevel,
     pub active_context: ContextId,
     pub active_project_index: Option<usize>,
     pub active_container_index: Option<usize>,
@@ -173,7 +157,6 @@ impl Default for Model {
 
             prompt: Default::default(),
 
-            focus: FocusLevel::default(),
             active_context: ContextId::default(),
             active_project_index: None,
             active_container_index: None,

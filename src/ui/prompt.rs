@@ -56,7 +56,7 @@ impl<'a> Widget for Prompt<'a> {
         let [block_area, bindings] =
             Layout::vertical([Constraint::Fill(1), Constraint::Length(1)]).areas(popup_rect);
 
-        let hints = Paragraph::new("q: Quit, Esc: Quit, Enter: Accept").centered();
+        let hints = Paragraph::new("Esc: Cancel, Enter: Accept").centered();
 
         Clear.render(block_area, buf);
         paragraph.render(block_area, buf);
