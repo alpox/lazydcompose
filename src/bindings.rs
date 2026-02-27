@@ -77,10 +77,10 @@ impl From<&Model> for BindingContext {
 
         tags.insert(Condition::Panel(model.active_context));
 
-        if let Some(project) = model.selected_project() {
-            if matches!(project.kind, ProjectKind::Compose(_)) {
-                tags.insert(Condition::ComposeProject);
-            }
+        if let Some(project) = model.selected_project()
+            && matches!(project.kind, ProjectKind::Compose(_))
+        {
+            tags.insert(Condition::ComposeProject);
         }
 
         Self::new(tags)
