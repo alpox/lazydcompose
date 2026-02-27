@@ -1,8 +1,50 @@
+use std::collections::HashSet;
+
 use lazy_static::lazy_static;
 
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
-use crate::model::ContextId;
+use crate::{
+    cli::ProjectKind,
+    model::{ContextId, Model},
+};
+
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub enum Condition {
+    Panel(ContextId),
+    ComposeProject,
+}
+
+#[derive(Clone, Debug)]
+pub struct Key {
+    pub code: KeyCode,
+    pub modifiers: KeyModifiers,
+}
+
+impl Key {
+    pub fn new(code: KeyCode, modifiers: KeyModifiers) -> Self {
+        Self { code, modifiers }
+    }
+
+    pub fn code(code: KeyCode) -> Self {
+        Self {
+            code,
+            modifiers: KeyModifiers::NONE,
+        }
+    }
+}
+
+impl From<KeyCode> for Key {
+    fn from(value: KeyCode) -> Self {
+        Key::code(value)
+    }
+}
+
+impl From<KeyEvent> for Key {
+    fn from(value: KeyEvent) -> Self {
+        Key::new(value.code, value.modifiers)
+    }
+}
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum KeyAction {
@@ -25,14 +67,43 @@ pub enum KeyAction {
     Deselect,
 }
 
+pub struct BindingContext {
+    tags: HashSet<Condition>,
+}
+
+impl From<&Model> for BindingContext {
+    fn from(model: &Model) -> Self {
+        let mut tags = HashSet::new();
+
+        tags.insert(Condition::Panel(model.active_context));
+
+        if let Some(project) = model.selected_project() {
+            if matches!(project.kind, ProjectKind::Compose(_)) {
+                tags.insert(Condition::ComposeProject);
+            }
+        }
+
+        Self::new(tags)
+    }
+}
+
+impl BindingContext {
+    pub fn new(tags: impl Into<HashSet<Condition>>) -> Self {
+        Self { tags: tags.into() }
+    }
+
+    fn satisfies(&self, conditions: &[Condition]) -> bool {
+        conditions.is_empty() || conditions.iter().all(|cond| self.tags.contains(cond))
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct Binding {
-    pub keys: &'static str,
+    pub keys: Vec<Key>,
+    pub display: &'static str,
     pub description: &'static str,
-    pub panels: Vec<ContextId>,
-    global: bool,
-    matcher: fn(KeyEvent) -> bool,
-    action: fn(KeyEvent) -> Option<KeyAction>,
+    pub action: KeyAction,
+    pub conditions: Vec<Condition>,
 }
 
 lazy_static! {
@@ -48,144 +119,159 @@ impl Default for KeyBindings {
         Self {
             map: vec![
                 Binding {
-                    keys: "q, Ctrl+c",
+                    keys: vec![
+                        KeyCode::Char('q').into(),
+                        Key::new(KeyCode::Char('c').into(), KeyModifiers::CONTROL),
+                        Key::new(KeyCode::Char('C').into(), KeyModifiers::CONTROL),
+                    ],
+                    display: "q, Ctrl+c",
                     description: "Quit application",
-                    panels: vec![],
-                    global: true,
-                    matcher: |k| {
-                        matches!(
-                            k,
-                            KeyEvent {
-                                code: KeyCode::Char('q'),
-                                ..
-                            } | KeyEvent {
-                                code: KeyCode::Char('c' | 'C'),
-                                modifiers: KeyModifiers::CONTROL,
-                                ..
-                            }
-                        )
-                    },
-                    action: |_| Some(KeyAction::Quit),
+                    action: KeyAction::Quit,
+                    conditions: vec![],
                 },
+                // Projects panel
                 Binding {
-                    keys: "k, ↑",
+                    keys: vec![KeyCode::Char('k').into(), KeyCode::Up.into()],
+                    display: "k, ↑",
                     description: "Move selection up",
-                    panels: vec![ContextId::Projects, ContextId::Containers],
-                    global: false,
-                    matcher: |k| matches!(k.code, KeyCode::Char('k') | KeyCode::Up),
-                    action: |_| Some(KeyAction::MoveUp),
+                    action: KeyAction::MoveUp,
+                    conditions: vec![Condition::Panel(ContextId::Projects)],
                 },
                 Binding {
-                    keys: "j, ↓",
+                    keys: vec![KeyCode::Char('j').into(), KeyCode::Down.into()],
+                    display: "j, ↓",
                     description: "Move selection down",
-                    panels: vec![ContextId::Projects, ContextId::Containers],
-                    global: false,
-                    matcher: |k| matches!(k.code, KeyCode::Char('j') | KeyCode::Down),
-                    action: |_| Some(KeyAction::MoveDown),
+                    action: KeyAction::MoveDown,
+                    conditions: vec![Condition::Panel(ContextId::Projects)],
                 },
                 Binding {
-                    keys: "s",
+                    keys: vec![KeyCode::Char('s').into()],
+                    display: "s",
                     description: "Docker compose start",
-                    panels: vec![ContextId::Projects],
-                    global: false,
-                    matcher: |k| matches!(k.code, KeyCode::Char('s')),
-                    action: |_| Some(KeyAction::DockerComposeStart),
+                    action: KeyAction::DockerComposeStart,
+                    conditions: vec![
+                        Condition::Panel(ContextId::Projects),
+                        Condition::ComposeProject,
+                    ],
                 },
                 Binding {
-                    keys: "S",
+                    keys: vec![KeyCode::Char('S').into()],
+                    display: "S",
                     description: "Docker compose stop",
-                    panels: vec![ContextId::Projects],
-                    global: false,
-                    matcher: |k| matches!(k.code, KeyCode::Char('S')),
-                    action: |_| Some(KeyAction::DockerComposeStop),
+                    action: KeyAction::DockerComposeStop,
+                    conditions: vec![
+                        Condition::Panel(ContextId::Projects),
+                        Condition::ComposeProject,
+                    ],
                 },
                 Binding {
-                    keys: "u",
+                    keys: vec![KeyCode::Char('u').into()],
+                    display: "u",
                     description: "Docker compose up",
-                    panels: vec![ContextId::Projects],
-                    global: false,
-                    matcher: |k| matches!(k.code, KeyCode::Char('u')),
-                    action: |_| Some(KeyAction::DockerComposeUp),
+                    action: KeyAction::DockerComposeUp,
+                    conditions: vec![
+                        Condition::Panel(ContextId::Projects),
+                        Condition::ComposeProject,
+                    ],
                 },
                 Binding {
-                    keys: "r",
+                    keys: vec![KeyCode::Char('r').into()],
+                    display: "r",
                     description: "Docker compose restart",
-                    panels: vec![ContextId::Projects],
-                    global: false,
-                    matcher: |k| matches!(k.code, KeyCode::Char('r')),
-                    action: |_| Some(KeyAction::DockerComposeRestart),
+                    action: KeyAction::DockerComposeRestart,
+                    conditions: vec![
+                        Condition::Panel(ContextId::Projects),
+                        Condition::ComposeProject,
+                    ],
                 },
                 Binding {
-                    keys: "d",
+                    keys: vec![KeyCode::Char('d').into()],
+                    display: "d",
                     description: "Docker compose down",
-                    panels: vec![ContextId::Projects],
-                    global: false,
-                    matcher: |k| matches!(k.code, KeyCode::Char('d')),
-                    action: |_| Some(KeyAction::DockerComposeDown),
+                    action: KeyAction::DockerComposeDown,
+                    conditions: vec![
+                        Condition::Panel(ContextId::Projects),
+                        Condition::ComposeProject,
+                    ],
                 },
                 Binding {
-                    keys: "s",
-                    description: "Docker container start",
-                    panels: vec![ContextId::Containers],
-                    global: false,
-                    matcher: |k| matches!(k.code, KeyCode::Char('s')),
-                    action: |_| Some(KeyAction::DockerContainerStart),
-                },
-                Binding {
-                    keys: "S",
-                    description: "Docker container stop",
-                    panels: vec![ContextId::Containers],
-                    global: false,
-                    matcher: |k| matches!(k.code, KeyCode::Char('S')),
-                    action: |_| Some(KeyAction::DockerContainerStop),
-                },
-                Binding {
-                    keys: "r",
-                    description: "Docker container restart",
-                    panels: vec![ContextId::Containers],
-                    global: false,
-                    matcher: |k| matches!(k.code, KeyCode::Char('r')),
-                    action: |_| Some(KeyAction::DockerContainerRestart),
-                },
-                Binding {
-                    keys: "?",
-                    description: "Show keybindings",
-                    panels: vec![],
-                    global: true,
-                    matcher: |k| matches!(k.code, KeyCode::Char('?')),
-                    action: |_| Some(KeyAction::ShowBindings),
-                },
-                Binding {
-                    keys: "m",
-                    description: "Docker follow logs",
-                    panels: vec![ContextId::Containers],
-                    global: false,
-                    matcher: |k| matches!(k.code, KeyCode::Char('m')),
-                    action: |_| Some(KeyAction::DockerFollowLogs),
-                },
-                Binding {
-                    keys: "E",
-                    description: "Docker console",
-                    panels: vec![ContextId::Containers],
-                    global: false,
-                    matcher: |k| matches!(k.code, KeyCode::Char('E')),
-                    action: |_| Some(KeyAction::DockerConsole),
-                },
-                Binding {
-                    keys: "Esc",
-                    description: "Deselect",
-                    panels: vec![ContextId::Containers],
-                    global: false,
-                    matcher: |k| matches!(k.code, KeyCode::Esc),
-                    action: |_| Some(KeyAction::Deselect),
-                },
-                Binding {
-                    keys: "Enter",
+                    keys: vec![KeyCode::Enter.into()],
+                    display: "Enter",
                     description: "Select",
-                    panels: vec![ContextId::Projects, ContextId::Containers],
-                    global: false,
-                    matcher: |k| matches!(k.code, KeyCode::Enter),
-                    action: |_| Some(KeyAction::Select),
+                    action: KeyAction::Select,
+                    conditions: vec![Condition::Panel(ContextId::Projects)],
+                },
+                // Containers panel
+                Binding {
+                    keys: vec![KeyCode::Char('k').into(), KeyCode::Up.into()],
+                    display: "k, ↑",
+                    description: "Move selection up",
+                    action: KeyAction::MoveUp,
+                    conditions: vec![Condition::Panel(ContextId::Containers)],
+                },
+                Binding {
+                    keys: vec![KeyCode::Char('j').into(), KeyCode::Down.into()],
+                    display: "j, ↓",
+                    description: "Move selection down",
+                    action: KeyAction::MoveDown,
+                    conditions: vec![Condition::Panel(ContextId::Containers)],
+                },
+                Binding {
+                    keys: vec![KeyCode::Char('s').into()],
+                    display: "s",
+                    description: "Docker container start",
+                    action: KeyAction::DockerContainerStart,
+                    conditions: vec![Condition::Panel(ContextId::Containers)],
+                },
+                Binding {
+                    keys: vec![KeyCode::Char('S').into()],
+                    display: "S",
+                    description: "Docker container stop",
+                    action: KeyAction::DockerContainerStop,
+                    conditions: vec![Condition::Panel(ContextId::Containers)],
+                },
+                Binding {
+                    keys: vec![KeyCode::Char('r').into()],
+                    display: "r",
+                    description: "Docker container restart",
+                    action: KeyAction::DockerContainerRestart,
+                    conditions: vec![Condition::Panel(ContextId::Containers)],
+                },
+                Binding {
+                    keys: vec![KeyCode::Char('m').into()],
+                    display: "m",
+                    description: "Docker follow logs",
+                    action: KeyAction::DockerFollowLogs,
+                    conditions: vec![Condition::Panel(ContextId::Containers)],
+                },
+                Binding {
+                    keys: vec![KeyCode::Char('E').into()],
+                    display: "E",
+                    description: "Docker console",
+                    action: KeyAction::DockerConsole,
+                    conditions: vec![Condition::Panel(ContextId::Containers)],
+                },
+                Binding {
+                    keys: vec![KeyCode::Esc.into()],
+                    display: "Esc",
+                    description: "Deselect",
+                    action: KeyAction::Deselect,
+                    conditions: vec![Condition::Panel(ContextId::Containers)],
+                },
+                Binding {
+                    keys: vec![KeyCode::Enter.into()],
+                    display: "Enter",
+                    description: "Select",
+                    action: KeyAction::Select,
+                    conditions: vec![Condition::Panel(ContextId::Containers)],
+                },
+                // Global
+                Binding {
+                    keys: vec![KeyCode::Char('?').into()],
+                    display: "?",
+                    description: "Show keybindings",
+                    action: KeyAction::ShowBindings,
+                    conditions: vec![],
                 },
             ],
         }
@@ -193,34 +279,39 @@ impl Default for KeyBindings {
 }
 
 impl KeyBindings {
-    pub fn get(&self, key: &KeyEvent) -> Option<KeyAction> {
-        self.map
-            .iter()
-            .find(|binding| (binding.matcher)(*key))
-            .and_then(|binding| (binding.action)(*key))
-    }
+    pub fn resolve(&self, key: &KeyEvent, model: &Model) -> Option<KeyAction> {
+        let binding_context = BindingContext::from(model);
 
-    pub fn get_for_context(&self, key: &KeyEvent, context: ContextId) -> Option<KeyAction> {
         self.map
             .iter()
             .find(|binding| {
-                (binding.global || binding.panels.contains(&context)) && (binding.matcher)(*key)
+                let key_matches = binding
+                    .keys
+                    .iter()
+                    .any(|k| key.code == k.code && key.modifiers.contains(k.modifiers));
+
+                key_matches && binding_context.satisfies(binding.conditions.as_slice())
             })
-            .and_then(|binding| (binding.action)(*key))
+            .map(|binding| binding.action)
     }
 
     pub fn global(&self) -> Vec<Binding> {
         self.map
             .iter()
-            .filter(|binding| binding.panels.is_empty())
+            .filter(|binding| binding.conditions.is_empty())
             .cloned()
             .collect()
     }
 
-    pub fn bindings_for(&self, panel: ContextId) -> Vec<Binding> {
+    pub fn bindings_for(&self, model: &Model) -> Vec<Binding> {
+        let binding_context = BindingContext::from(model);
+
         self.map
             .iter()
-            .filter(|binding| binding.panels.contains(&panel))
+            .filter(|binding| {
+                !binding.conditions.is_empty()
+                    && binding_context.satisfies(binding.conditions.as_slice())
+            })
             .cloned()
             .collect()
     }

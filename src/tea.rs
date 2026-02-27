@@ -97,7 +97,7 @@ fn handle_key(model: &mut Model, key: KeyEvent) -> Effect<Message> {
         };
     }
 
-    match BINDINGS.get_for_context(&key, model.active_context) {
+    match BINDINGS.resolve(&key, model) {
         Some(KeyAction::Quit) => quit(model),
         Some(KeyAction::ShowBindings) => {
             model.active_overlay_context = Some(OverlayContextId::BindingsPopup);
@@ -154,7 +154,7 @@ pub fn view(model: &mut Model, frame: &mut Frame) {
 
     match model.active_overlay_context {
         Some(OverlayContextId::BindingsPopup) => {
-            Bindings::new(model.active_context).render(frame.area(), frame.buffer_mut());
+            Bindings::new(model).render(frame.area(), frame.buffer_mut());
         }
         Some(OverlayContextId::Prompt) => {
             if let Some(prompt) = &model.prompt {

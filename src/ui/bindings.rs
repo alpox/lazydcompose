@@ -8,26 +8,19 @@ use ratatui::{
     widgets::{Block, Borders, Cell, Clear, Paragraph, Row, Table, Widget},
 };
 
-use crate::{
-    bindings::BINDINGS,
-    effect::Effect,
-    event::Message,
-    model::{ContextId, Model},
-};
+use crate::{bindings::BINDINGS, effect::Effect, event::Message, model::Model};
 
-pub struct Bindings {
-    active_context: ContextId,
+pub struct Bindings<'a> {
+    model: &'a Model,
 }
 
-impl Bindings {
-    pub fn new(context: ContextId) -> Self {
-        Self {
-            active_context: context,
-        }
+impl<'a> Bindings<'a> {
+    pub fn new(model: &'a Model) -> Self {
+        Self { model }
     }
 }
 
-impl Widget for Bindings {
+impl<'a> Widget for Bindings<'a> {
     fn render(self, area: Rect, buf: &mut Buffer)
     where
         Self: Sized,
@@ -43,13 +36,13 @@ impl Widget for Bindings {
             .border_style(Color::Cyan);
 
         let global_bindings = BINDINGS.global();
-        let panel_bindings = BINDINGS.bindings_for(self.active_context);
+        let panel_bindings = BINDINGS.bindings_for(self.model);
 
         let listed_bindings = [global_bindings.clone(), panel_bindings.clone()].concat();
 
         let max_binding_len = listed_bindings
             .iter()
-            .map(|binding| binding.keys.len())
+            .map(|binding| binding.display.len())
             .max()
             .unwrap_or(0) as u16;
 
@@ -63,7 +56,7 @@ impl Widget for Bindings {
             .iter()
             .map(|binding| {
                 Row::new(vec![
-                    Cell::from(binding.keys),
+                    Cell::from(binding.display),
                     Cell::from(binding.description),
                 ])
             })
@@ -81,7 +74,7 @@ impl Widget for Bindings {
             .iter()
             .map(|binding| {
                 Row::new(vec![
-                    Cell::from(binding.keys),
+                    Cell::from(binding.display),
                     Cell::from(binding.description),
                 ])
             })

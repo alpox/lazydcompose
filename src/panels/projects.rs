@@ -49,7 +49,7 @@ where
 }
 
 pub fn handle_key(model: &mut Model, key: KeyEvent) -> Effect<Message> {
-    match BINDINGS.get_for_context(&key, model.active_context) {
+    match BINDINGS.resolve(&key, model) {
         Some(KeyAction::MoveUp) => {
             model.select_previous_project();
             Effect::None
