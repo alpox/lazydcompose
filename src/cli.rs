@@ -206,6 +206,26 @@ pub async fn docker_get_projects() -> color_eyre::Result<Vec<Project>> {
     Ok(projects)
 }
 
+pub async fn docker_action(
+    args: impl IntoIterator<Item = impl AsRef<str>>,
+) -> color_eyre::Result<String> {
+    let args: Vec<_> = args.into_iter().map(|v| v.as_ref().to_string()).collect();
+
+    let output = Command::new("docker")
+        .args(args)
+        .output()
+        .await?;
+
+    if !output.status.success() {
+        let err = String::from_utf8_lossy(&output.stderr);
+        Err(eyre!("{}", err))
+    } else {
+        let out = String::from_utf8(output.stdout)
+            .wrap_err("docker container list returned invalid utf8")?;
+        Ok(out)
+    }
+}
+
 pub async fn docker_project_action(
     project: Project,
     args: impl IntoIterator<Item = impl AsRef<str>>,
