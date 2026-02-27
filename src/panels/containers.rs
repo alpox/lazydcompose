@@ -9,7 +9,7 @@ use ratatui::{
 
 use crate::{
     bindings::{BINDINGS, KeyAction},
-    cli::{Container, Project, ProjectKind, docker_action, docker_action_tty, docker_project_action},
+    cli::{Container, Project, docker_action_tty, docker_project_action},
     effect::Effect,
     event::Message,
     model::{ContextId, Model, PendingOperation, Prompt, ResourceId},
@@ -26,7 +26,7 @@ impl From<&Container> for ListItem<'_> {
     }
 }
 
-fn docker_container_action<F, R>(model: &Model, op: PendingOperation, f: F) -> Effect<Message>
+fn docker_action<F, R>(model: &Model, op: PendingOperation, f: F) -> Effect<Message>
 where
     F: FnOnce(Project, Container) -> R + Send + 'static,
     R: IntoIterator<Item = String> + Send,
@@ -38,13 +38,8 @@ where
                 Effect::Dispatch(Message::InitPending(resource_id, op)),
                 Effect::perform(async move {
                     let args: Vec<_> = f(project.clone(), container.clone()).into_iter().collect();
-                    if matches!(project.kind, ProjectKind::Compose(_)) {
-                        let result = docker_project_action(project, args).await;
-                        Some(Message::from(result))
-                    } else {
-                        let result = docker_action(args).await;
-                        Some(Message::from(result))
-                    }
+                    let result = docker_project_action(project, args).await;
+                    Some(Message::from(result))
                 }),
             ])
         }
@@ -63,7 +58,7 @@ pub fn handle_key(model: &mut Model, key: KeyEvent) -> Effect<Message> {
             Effect::None
         }
         Some(KeyAction::DockerContainerStart) => {
-            docker_container_action(model, PendingOperation::Starting, |_, container| {
+            docker_action(model, PendingOperation::Starting, |_, container| {
                 args(["container", "start", container.names.as_str()])
             })
         }
@@ -75,7 +70,7 @@ pub fn handle_key(model: &mut Model, key: KeyEvent) -> Effect<Message> {
                         "Are you sure that you want to stop the container '{}'?",
                         container.names
                     ),
-                    docker_container_action(model, PendingOperation::Stopping, |_, container| {
+                    docker_action(model, PendingOperation::Stopping, |_, container| {
                         args(["container", "stop", container.names.as_str()])
                     }),
                 ))
@@ -84,7 +79,7 @@ pub fn handle_key(model: &mut Model, key: KeyEvent) -> Effect<Message> {
             Effect::None
         }
         Some(KeyAction::DockerContainerRestart) => {
-            docker_container_action(model, PendingOperation::Restarting, |_, container| {
+            docker_action(model, PendingOperation::Restarting, |_, container| {
                 args(["container", "restart", container.names.as_str()])
             })
         }

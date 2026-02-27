@@ -7,7 +7,7 @@ use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 
 use color_eyre::eyre::{ContextCompat, WrapErr, eyre};
-use signal_hook::consts::{SIGINT};
+use signal_hook::consts::SIGINT;
 use tokio::{process::Command, signal};
 
 #[derive(Clone, Serialize, Deserialize, PartialEq, Eq, Debug, Default)]
@@ -211,10 +211,7 @@ pub async fn docker_action(
 ) -> color_eyre::Result<String> {
     let args: Vec<_> = args.into_iter().map(|v| v.as_ref().to_string()).collect();
 
-    let output = Command::new("docker")
-        .args(args)
-        .output()
-        .await?;
+    let output = Command::new("docker").args(args).output().await?;
 
     if !output.status.success() {
         let err = String::from_utf8_lossy(&output.stderr);
@@ -230,17 +227,16 @@ pub async fn docker_project_action(
     project: Project,
     args: impl IntoIterator<Item = impl AsRef<str>>,
 ) -> color_eyre::Result<String> {
-    let folder = project
-        .folder()
-        .wrap_err_with(|| format!("folder for project '{}' not found", project.name))?;
-
     let args: Vec<_> = args.into_iter().map(|v| v.as_ref().to_string()).collect();
 
-    let output = Command::new("docker")
-        .current_dir(folder)
-        .args(args)
-        .output()
-        .await?;
+    let mut command = Command::new("docker");
+    command.args(args);
+
+    if let Some(folder) = project.folder() {
+        command.current_dir(folder);
+    }
+
+    let output = command.output().await?;
 
     if !output.status.success() {
         let err = String::from_utf8_lossy(&output.stderr);
@@ -256,10 +252,6 @@ pub async fn docker_action_tty(
     project: Project,
     args: impl IntoIterator<Item = impl AsRef<str>>,
 ) -> color_eyre::Result<ExitStatus> {
-    let folder = project
-        .folder()
-        .wrap_err_with(|| format!("folder for project '{}' not found", project.name))?;
-
     let args: Vec<_> = args.into_iter().map(|v| v.as_ref().to_string()).collect();
 
     let cmd = iter::once("docker")
@@ -269,10 +261,14 @@ pub async fn docker_action_tty(
 
     println!("\n{}", format!("\n--- Executing {:?} ---", cmd).cyan());
 
-    let status = std::process::Command::new("docker")
-        .current_dir(folder)
-        .args(&args)
-        .status()?;
+    let mut command = std::process::Command::new("docker");
+    command.args(&args);
+
+    if let Some(folder) = project.folder() {
+        command.current_dir(folder);
+    }
+
+    let status = command.status()?;
 
     let was_interrupted = status.signal() == Some(SIGINT) || status.code() == Some(130);
 
