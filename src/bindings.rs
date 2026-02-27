@@ -121,8 +121,8 @@ impl Default for KeyBindings {
                 Binding {
                     keys: vec![
                         KeyCode::Char('q').into(),
-                        Key::new(KeyCode::Char('c').into(), KeyModifiers::CONTROL),
-                        Key::new(KeyCode::Char('C').into(), KeyModifiers::CONTROL),
+                        Key::new(KeyCode::Char('c'), KeyModifiers::CONTROL),
+                        Key::new(KeyCode::Char('C'), KeyModifiers::CONTROL),
                     ],
                     display: "q, Ctrl+c",
                     description: "Quit application",
