@@ -6,7 +6,7 @@ use std::{
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 
-use color_eyre::eyre::{ContextCompat, WrapErr, eyre};
+use color_eyre::eyre::{WrapErr, eyre};
 use signal_hook::consts::SIGINT;
 use tokio::{process::Command, signal};
 
