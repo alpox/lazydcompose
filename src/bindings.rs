@@ -133,6 +133,7 @@ impl Default for KeyBindings {
     fn default() -> Self {
         Self {
             map: vec![
+                // Global
                 Binding {
                     keys: vec![
                         KeyCode::Char('q').into(),
@@ -144,7 +145,14 @@ impl Default for KeyBindings {
                     action: KeyAction::Quit,
                     conditions: vec![],
                 },
-                // Projects panel
+                Binding {
+                    keys: vec![KeyCode::Char('?').into()],
+                    display: "?",
+                    description: "Show keybindings",
+                    action: KeyAction::ShowBindings,
+                    conditions: vec![],
+                },
+                // Projects panel - navigation
                 Binding {
                     keys: vec![KeyCode::Char('k').into(), KeyCode::Up.into()],
                     display: "k, ↑",
@@ -158,6 +166,34 @@ impl Default for KeyBindings {
                     description: "Move selection down",
                     action: KeyAction::MoveDown,
                     conditions: vec![Condition::Panel(ContextId::Projects)],
+                },
+                Binding {
+                    keys: vec![KeyCode::Enter.into()],
+                    display: "Enter",
+                    description: "Select",
+                    action: KeyAction::Select,
+                    conditions: vec![Condition::Panel(ContextId::Projects)],
+                },
+                // Projects panel - compose actions
+                Binding {
+                    keys: vec![KeyCode::Char('u').into()],
+                    display: "u",
+                    description: "Docker compose up",
+                    action: KeyAction::DockerComposeUp,
+                    conditions: vec![
+                        Condition::Panel(ContextId::Projects),
+                        Condition::ComposeProject,
+                    ],
+                },
+                Binding {
+                    keys: vec![KeyCode::Char('d').into()],
+                    display: "d",
+                    description: "Docker compose down",
+                    action: KeyAction::DockerComposeDown,
+                    conditions: vec![
+                        Condition::Panel(ContextId::Projects),
+                        Condition::ComposeProject,
+                    ],
                 },
                 Binding {
                     keys: vec![KeyCode::Char('s').into()],
@@ -180,16 +216,6 @@ impl Default for KeyBindings {
                     ],
                 },
                 Binding {
-                    keys: vec![KeyCode::Char('u').into()],
-                    display: "u",
-                    description: "Docker compose up",
-                    action: KeyAction::DockerComposeUp,
-                    conditions: vec![
-                        Condition::Panel(ContextId::Projects),
-                        Condition::ComposeProject,
-                    ],
-                },
-                Binding {
                     keys: vec![KeyCode::Char('r').into()],
                     display: "r",
                     description: "Docker compose restart",
@@ -199,24 +225,7 @@ impl Default for KeyBindings {
                         Condition::ComposeProject,
                     ],
                 },
-                Binding {
-                    keys: vec![KeyCode::Char('d').into()],
-                    display: "d",
-                    description: "Docker compose down",
-                    action: KeyAction::DockerComposeDown,
-                    conditions: vec![
-                        Condition::Panel(ContextId::Projects),
-                        Condition::ComposeProject,
-                    ],
-                },
-                Binding {
-                    keys: vec![KeyCode::Enter.into()],
-                    display: "Enter",
-                    description: "Select",
-                    action: KeyAction::Select,
-                    conditions: vec![Condition::Panel(ContextId::Projects)],
-                },
-                // Containers panel
+                // Containers panel - navigation
                 Binding {
                     keys: vec![KeyCode::Char('k').into(), KeyCode::Up.into()],
                     display: "k, ↑",
@@ -231,6 +240,21 @@ impl Default for KeyBindings {
                     action: KeyAction::MoveDown,
                     conditions: vec![Condition::Panel(ContextId::Containers)],
                 },
+                Binding {
+                    keys: vec![KeyCode::Enter.into()],
+                    display: "Enter",
+                    description: "Select",
+                    action: KeyAction::Select,
+                    conditions: vec![Condition::Panel(ContextId::Containers)],
+                },
+                Binding {
+                    keys: vec![KeyCode::Esc.into()],
+                    display: "Esc",
+                    description: "Deselect",
+                    action: KeyAction::Deselect,
+                    conditions: vec![Condition::Panel(ContextId::Containers)],
+                },
+                // Containers panel - container actions
                 Binding {
                     keys: vec![KeyCode::Char('s').into()],
                     display: "s",
@@ -265,27 +289,6 @@ impl Default for KeyBindings {
                     description: "Docker console",
                     action: KeyAction::DockerConsole,
                     conditions: vec![Condition::Panel(ContextId::Containers)],
-                },
-                Binding {
-                    keys: vec![KeyCode::Esc.into()],
-                    display: "Esc",
-                    description: "Deselect",
-                    action: KeyAction::Deselect,
-                    conditions: vec![Condition::Panel(ContextId::Containers)],
-                },
-                Binding {
-                    keys: vec![KeyCode::Enter.into()],
-                    display: "Enter",
-                    description: "Select",
-                    action: KeyAction::Select,
-                    conditions: vec![Condition::Panel(ContextId::Containers)],
-                },
-                Binding {
-                    keys: vec![KeyCode::Char('?').into()],
-                    display: "?",
-                    description: "Show keybindings",
-                    action: KeyAction::ShowBindings,
-                    conditions: vec![],
                 },
             ],
         }
