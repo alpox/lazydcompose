@@ -101,6 +101,7 @@ fn handle_key(model: &mut Model, key: KeyEvent) -> Effect<Message> {
         Some(KeyAction::Quit) => quit(model),
         Some(KeyAction::ShowBindings) => {
             model.active_overlay_context = Some(OverlayContextId::BindingsPopup);
+            model.selected_action_index = Some(0);
             Effect::None
         }
         _ => match model.active_context {
@@ -136,11 +137,6 @@ fn layout(area: Rect) -> AppLayout {
         .direction(Direction::Vertical)
         .constraints([Constraint::Fill(1), Constraint::Length(1)])
         .areas(area);
-    //
-    // let horizontal = Layout::default()
-    //     .direction(Direction::Horizontal)
-    //     .constraints([Constraint::Percentage(30), Constraint::Percentage(70)])
-    //     .split(full[0]);
 
     AppLayout { projects, hints }
 }

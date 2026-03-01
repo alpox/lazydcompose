@@ -19,7 +19,7 @@ pub enum ContextId {
     Containers,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum OverlayContextId {
     BindingsPopup,
     Prompt,
@@ -146,6 +146,8 @@ pub struct Model {
     pub projects_scroll_offset: usize,
 
     pub notes: Vec<Note>,
+
+    pub selected_action_index: Option<usize>,
 }
 
 impl Default for Model {
@@ -166,6 +168,8 @@ impl Default for Model {
             projects_scroll_offset: 0,
 
             notes: vec![],
+
+            selected_action_index: Some(0),
         }
     }
 }

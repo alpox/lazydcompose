@@ -2,20 +2,21 @@ use std::collections::HashSet;
 
 use lazy_static::lazy_static;
 
-use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+use crossterm::event::{KeyCode, KeyEvent, KeyEventKind, KeyEventState, KeyModifiers};
 
 use crate::{
     cli::ProjectKind,
-    model::{ContextId, Model},
+    model::{ContextId, Model, OverlayContextId},
 };
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum Condition {
     Panel(ContextId),
+    OverlayContext(OverlayContextId),
     ComposeProject,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Key {
     pub code: KeyCode,
     pub modifiers: KeyModifiers,
@@ -40,13 +41,24 @@ impl From<KeyCode> for Key {
     }
 }
 
+impl From<&Key> for KeyEvent {
+    fn from(value: &Key) -> Self {
+        KeyEvent {
+            code: value.code,
+            modifiers: value.modifiers,
+            kind: KeyEventKind::Press,
+            state: KeyEventState::NONE,
+        }
+    }
+}
+
 impl From<KeyEvent> for Key {
     fn from(value: KeyEvent) -> Self {
         Key::new(value.code, value.modifiers)
     }
 }
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 pub enum KeyAction {
     Quit,
     MoveUp,
@@ -65,6 +77,9 @@ pub enum KeyAction {
     ClosePopup,
     Select,
     Deselect,
+    ChooseAction,
+    NextBinding,
+    PreviousBinding,
 }
 
 pub struct BindingContext {
@@ -265,7 +280,6 @@ impl Default for KeyBindings {
                     action: KeyAction::Select,
                     conditions: vec![Condition::Panel(ContextId::Containers)],
                 },
-                // Global
                 Binding {
                     keys: vec![KeyCode::Char('?').into()],
                     display: "?",

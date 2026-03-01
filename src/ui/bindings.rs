@@ -5,7 +5,9 @@ use ratatui::{
     buffer::Buffer,
     layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Style},
-    widgets::{Block, Borders, Cell, Clear, Paragraph, Row, Table, Widget},
+    widgets::{
+        Block, Borders, Cell, Clear, Paragraph, Row, StatefulWidget, Table, TableState, Widget,
+    },
 };
 
 use crate::{bindings::BINDINGS, effect::Effect, event::Message, model::Model};
@@ -37,6 +39,8 @@ impl<'a> Widget for Bindings<'a> {
 
         let global_bindings = BINDINGS.global();
         let panel_bindings = BINDINGS.bindings_for(self.model);
+
+        let panel_bindings_len = panel_bindings.iter().len();
 
         let listed_bindings = [global_bindings.clone(), panel_bindings.clone()].concat();
 
@@ -70,6 +74,13 @@ impl<'a> Widget for Bindings<'a> {
         .row_highlight_style(Style::new().bg(Color::Rgb(40, 40, 60)))
         .highlight_symbol(">");
 
+        let mut panel_table_state = TableState::new();
+        if let Some(idx) = self.model.selected_action_index
+            && idx < panel_bindings_len
+        {
+            panel_table_state.select(self.model.selected_action_index);
+        }
+
         let rows: Vec<_> = global_bindings
             .iter()
             .map(|binding| {
@@ -88,12 +99,19 @@ impl<'a> Widget for Bindings<'a> {
         .row_highlight_style(Style::new().bg(Color::Rgb(40, 40, 60)))
         .highlight_symbol(">");
 
+        let mut global_table_state = TableState::new();
+        if let Some(idx) = self.model.selected_action_index
+            && idx >= panel_bindings_len
+        {
+            global_table_state.select(Some(idx.saturating_sub(panel_bindings_len)));
+        }
+
         let hints = Paragraph::new("q: Quit, Esc: Quit").centered();
 
         let popup_area = area.centered(
             Constraint::Length(max_binding_width + 2),
             Constraint::Length(min(
-                listed_bindings.len() as u16 + 4, // 2 * 2 block borders
+                listed_bindings.len() as u16 + 5, // 2 * 2 block borders + 1 hint
                 (area.height as f32 * 0.8) as u16,
             )),
         );
@@ -108,16 +126,52 @@ impl<'a> Widget for Bindings<'a> {
             .split(popup_area);
 
         Clear.render(popup_area, buf);
-        panel_table.render(chunks[0], buf);
-        global_table.render(chunks[1], buf);
+        StatefulWidget::render(panel_table, chunks[0], buf, &mut panel_table_state);
+        StatefulWidget::render(global_table, chunks[1], buf, &mut global_table_state);
         hints.render(chunks[2], buf);
     }
 }
 
 pub fn handle_key(model: &mut Model, key: KeyEvent) -> Effect<Message> {
+    let bindings = [BINDINGS.bindings_for(model), BINDINGS.global()].concat();
+    let last_index = bindings.iter().len() - 1;
+
     match key.code {
+        KeyCode::Char('j') | KeyCode::Down => {
+            model.selected_action_index = match model.selected_action_index {
+                Some(idx) if idx == last_index => Some(0),
+                Some(idx) => Some(idx + 1),
+                None => Some(0),
+            };
+
+            Effect::None
+        }
+        KeyCode::Char('k') | KeyCode::Up => {
+            model.selected_action_index = match model.selected_action_index {
+                Some(0) => Some(last_index),
+                Some(idx) => Some(idx - 1),
+                None => Some(last_index),
+            };
+
+            Effect::None
+        }
+        KeyCode::Enter => {
+            if let Some(idx) = model.selected_action_index {
+                model.selected_action_index = None;
+                model.active_overlay_context = None;
+                let binding = bindings.get(idx);
+                if let Some(key) = binding.and_then(|binding| binding.keys.first()) {
+                    Effect::dispatch(Message::KeyPress(key.into()))
+                } else {
+                    Effect::None
+                }
+            } else {
+                Effect::None
+            }
+        }
         KeyCode::Esc | KeyCode::Char('q') => {
             model.active_overlay_context = None;
+            model.selected_action_index = None;
             Effect::None
         }
         _ => Effect::None,
