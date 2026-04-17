@@ -340,8 +340,10 @@ impl KeyBindings {
     }
 
     pub fn apply_config(&mut self, settings: Settings) {
+        let Some(keybinds) = settings.keybindings else { return };
+
         for binding in &mut self.map {
-            if let Some(keys) = settings.keybindings.get(&binding.action) {
+            if let Some(keys) = keybinds.get(&binding.action) {
                 binding.keys = keys.clone();
             }
         }

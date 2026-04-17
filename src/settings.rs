@@ -94,5 +94,5 @@ fn parse_key_code(s: &str) -> Option<KeyCode> {
 #[derive(Clone, Serialize, Deserialize, PartialEq, Eq, Debug)]
 #[serde(rename_all = "snake_case")]
 pub struct Settings {
-    pub keybindings: HashMap<KeyAction, Vec<Key>>,
+    pub keybindings: Option<HashMap<KeyAction, Vec<Key>>>,
 }
