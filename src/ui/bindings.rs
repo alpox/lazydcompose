@@ -10,7 +10,7 @@ use ratatui::{
     },
 };
 
-use crate::{bindings::BINDINGS, effect::Effect, event::Message, model::Model};
+use crate::{bindings::bindings, effect::Effect, event::Message, model::Model};
 
 pub struct Bindings<'a> {
     model: &'a Model,
@@ -37,8 +37,8 @@ impl<'a> Widget for Bindings<'a> {
             .borders(Borders::ALL)
             .border_style(Color::Cyan);
 
-        let global_bindings = BINDINGS.global();
-        let panel_bindings = BINDINGS.bindings_for(self.model);
+        let global_bindings = bindings().global();
+        let panel_bindings = bindings().bindings_for(self.model);
 
         let panel_bindings_len = panel_bindings.iter().len();
 
@@ -133,7 +133,7 @@ impl<'a> Widget for Bindings<'a> {
 }
 
 pub fn handle_key(model: &mut Model, key: KeyEvent) -> Effect<Message> {
-    let bindings = [BINDINGS.bindings_for(model), BINDINGS.global()].concat();
+    let bindings = [bindings().bindings_for(model), bindings().global()].concat();
     let last_index = bindings.iter().len() - 1;
 
     match key.code {

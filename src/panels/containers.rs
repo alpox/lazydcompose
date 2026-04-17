@@ -8,7 +8,7 @@ use ratatui::{
 };
 
 use crate::{
-    bindings::{BINDINGS, KeyAction},
+    bindings::{KeyAction, bindings},
     cli::{Container, Project, docker_action_tty, docker_project_action},
     effect::Effect,
     event::Message,
@@ -48,7 +48,7 @@ where
 }
 
 pub fn handle_key(model: &mut Model, key: KeyEvent) -> Effect<Message> {
-    match BINDINGS.resolve(&key, model) {
+    match bindings().resolve(&key, model) {
         Some(KeyAction::MoveUp) => {
             model.select_previous_container();
             Effect::None

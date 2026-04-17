@@ -1,12 +1,14 @@
-use std::collections::HashSet;
+use std::{collections::HashSet, sync::OnceLock};
 
 use lazy_static::lazy_static;
 
 use crossterm::event::{KeyCode, KeyEvent, KeyEventKind, KeyEventState, KeyModifiers};
+use serde::{Deserialize, Serialize};
 
 use crate::{
     cli::ProjectKind,
     model::{ContextId, Model, OverlayContextId},
+    settings::Settings,
 };
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
@@ -16,7 +18,7 @@ pub enum Condition {
     ComposeProject,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Serialize, Debug, PartialEq, Eq, Hash)]
 pub struct Key {
     pub code: KeyCode,
     pub modifiers: KeyModifiers,
@@ -58,7 +60,7 @@ impl From<KeyEvent> for Key {
     }
 }
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Copy, Serialize, Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
 pub enum KeyAction {
     Quit,
     MoveUp,
@@ -122,7 +124,11 @@ pub struct Binding {
 }
 
 lazy_static! {
-    pub static ref BINDINGS: KeyBindings = KeyBindings::default();
+    pub static ref BINDINGS: OnceLock<KeyBindings> = OnceLock::new();
+}
+
+pub fn bindings() -> &'static KeyBindings {
+    BINDINGS.get().expect("BINDINGS not initialized")
 }
 
 pub struct KeyBindings {
@@ -331,5 +337,13 @@ impl KeyBindings {
             })
             .cloned()
             .collect()
+    }
+
+    pub fn apply_config(&mut self, settings: Settings) {
+        for binding in &mut self.map {
+            if let Some(keys) = settings.keybindings.get(&binding.action) {
+                binding.keys = keys.clone();
+            }
+        }
     }
 }

@@ -9,7 +9,7 @@ use ratatui::{
 };
 
 use crate::{
-    bindings::{BINDINGS, KeyAction},
+    bindings::{KeyAction, bindings},
     cli::docker_get_projects,
     effect::Effect,
     event::Message,
@@ -97,7 +97,7 @@ fn handle_key(model: &mut Model, key: KeyEvent) -> Effect<Message> {
         };
     }
 
-    match BINDINGS.resolve(&key, model) {
+    match bindings().resolve(&key, model) {
         Some(KeyAction::Quit) => quit(model),
         Some(KeyAction::ShowBindings) => {
             model.active_overlay_context = Some(OverlayContextId::BindingsPopup);
