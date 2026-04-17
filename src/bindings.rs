@@ -1,4 +1,4 @@
-use std::{collections::HashSet, sync::OnceLock};
+use std::{collections::HashSet, fmt, sync::OnceLock};
 
 use lazy_static::lazy_static;
 
@@ -60,6 +60,50 @@ impl From<KeyEvent> for Key {
     }
 }
 
+impl fmt::Display for Key {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        if self.modifiers.contains(KeyModifiers::CONTROL) {
+            write!(f, "Ctrl+")?;
+        }
+        if self.modifiers.contains(KeyModifiers::SHIFT) {
+            write!(f, "Shift+")?;
+        }
+        if self.modifiers.contains(KeyModifiers::ALT) {
+            write!(f, "Alt+")?;
+        }
+        match self.code {
+            KeyCode::Char(c) => {
+                let upper_c = c.to_uppercase();
+                write!(f, "{upper_c}")
+            }
+            KeyCode::Backspace => write!(f, "Backspace"),
+            KeyCode::Enter => write!(f, "Enter"),
+            KeyCode::Up => write!(f, "↑"),
+            KeyCode::Down => write!(f, "↓"),
+            KeyCode::Left => write!(f, "←"),
+            KeyCode::Right => write!(f, "→"),
+            KeyCode::Home => write!(f, "Home"),
+            KeyCode::End => write!(f, "End"),
+            KeyCode::PageUp => write!(f, "PageUp"),
+            KeyCode::PageDown => write!(f, "PageDown"),
+            KeyCode::Tab => write!(f, "Tab"),
+            KeyCode::BackTab => write!(f, "BackTab"),
+            KeyCode::Delete => write!(f, "Delete"),
+            KeyCode::Insert => write!(f, "Insert"),
+            KeyCode::Null => write!(f, "Null"),
+            KeyCode::Esc => write!(f, "Esc"),
+            KeyCode::CapsLock => write!(f, "CapsLock"),
+            KeyCode::ScrollLock => write!(f, "ScrollLock"),
+            KeyCode::NumLock => write!(f, "NumLock"),
+            KeyCode::PrintScreen => write!(f, "PrintScreen"),
+            KeyCode::Pause => write!(f, "Pause"),
+            KeyCode::Menu => write!(f, "Menu"),
+            KeyCode::KeypadBegin => write!(f, "KeypadBegin"),
+            other => write!(f, "{other:?}"),
+        }
+    }
+}
+
 #[derive(Copy, Serialize, Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
 pub enum KeyAction {
     Quit,
@@ -117,10 +161,22 @@ impl BindingContext {
 #[derive(Clone, Debug)]
 pub struct Binding {
     pub keys: Vec<Key>,
-    pub display: &'static str,
     pub description: &'static str,
     pub action: KeyAction,
     pub conditions: Vec<Condition>,
+}
+
+impl Binding {
+    pub fn display(&self) -> String {
+        let mut out = Vec::new();
+        for k in &self.keys {
+            let s = k.to_string();
+            if !out.iter().any(|x: &String| x.eq_ignore_ascii_case(&s)) {
+                out.push(s)
+            }
+        }
+        out.join(", ")
+    }
 }
 
 lazy_static! {
@@ -146,14 +202,12 @@ impl Default for KeyBindings {
                         Key::new(KeyCode::Char('c'), KeyModifiers::CONTROL),
                         Key::new(KeyCode::Char('C'), KeyModifiers::CONTROL),
                     ],
-                    display: "q, Ctrl+c",
                     description: "Quit application",
                     action: KeyAction::Quit,
                     conditions: vec![],
                 },
                 Binding {
                     keys: vec![KeyCode::Char('?').into()],
-                    display: "?",
                     description: "Show keybindings",
                     action: KeyAction::ShowBindings,
                     conditions: vec![],
@@ -161,21 +215,18 @@ impl Default for KeyBindings {
                 // Projects panel - navigation
                 Binding {
                     keys: vec![KeyCode::Char('k').into(), KeyCode::Up.into()],
-                    display: "k, ↑",
                     description: "Move selection up",
                     action: KeyAction::MoveUp,
                     conditions: vec![Condition::Panel(ContextId::Projects)],
                 },
                 Binding {
                     keys: vec![KeyCode::Char('j').into(), KeyCode::Down.into()],
-                    display: "j, ↓",
                     description: "Move selection down",
                     action: KeyAction::MoveDown,
                     conditions: vec![Condition::Panel(ContextId::Projects)],
                 },
                 Binding {
                     keys: vec![KeyCode::Enter.into()],
-                    display: "Enter",
                     description: "Select",
                     action: KeyAction::Select,
                     conditions: vec![Condition::Panel(ContextId::Projects)],
@@ -183,7 +234,6 @@ impl Default for KeyBindings {
                 // Projects panel - compose actions
                 Binding {
                     keys: vec![KeyCode::Char('u').into()],
-                    display: "u",
                     description: "Docker compose up",
                     action: KeyAction::DockerComposeUp,
                     conditions: vec![
@@ -193,7 +243,6 @@ impl Default for KeyBindings {
                 },
                 Binding {
                     keys: vec![KeyCode::Char('d').into()],
-                    display: "d",
                     description: "Docker compose down",
                     action: KeyAction::DockerComposeDown,
                     conditions: vec![
@@ -203,7 +252,6 @@ impl Default for KeyBindings {
                 },
                 Binding {
                     keys: vec![KeyCode::Char('s').into()],
-                    display: "s",
                     description: "Docker compose start",
                     action: KeyAction::DockerComposeStart,
                     conditions: vec![
@@ -213,7 +261,6 @@ impl Default for KeyBindings {
                 },
                 Binding {
                     keys: vec![KeyCode::Char('S').into()],
-                    display: "S",
                     description: "Docker compose stop",
                     action: KeyAction::DockerComposeStop,
                     conditions: vec![
@@ -223,7 +270,6 @@ impl Default for KeyBindings {
                 },
                 Binding {
                     keys: vec![KeyCode::Char('r').into()],
-                    display: "r",
                     description: "Docker compose restart",
                     action: KeyAction::DockerComposeRestart,
                     conditions: vec![
@@ -234,28 +280,24 @@ impl Default for KeyBindings {
                 // Containers panel - navigation
                 Binding {
                     keys: vec![KeyCode::Char('k').into(), KeyCode::Up.into()],
-                    display: "k, ↑",
                     description: "Move selection up",
                     action: KeyAction::MoveUp,
                     conditions: vec![Condition::Panel(ContextId::Containers)],
                 },
                 Binding {
                     keys: vec![KeyCode::Char('j').into(), KeyCode::Down.into()],
-                    display: "j, ↓",
                     description: "Move selection down",
                     action: KeyAction::MoveDown,
                     conditions: vec![Condition::Panel(ContextId::Containers)],
                 },
                 Binding {
                     keys: vec![KeyCode::Enter.into()],
-                    display: "Enter",
                     description: "Select",
                     action: KeyAction::Select,
                     conditions: vec![Condition::Panel(ContextId::Containers)],
                 },
                 Binding {
                     keys: vec![KeyCode::Esc.into()],
-                    display: "Esc",
                     description: "Deselect",
                     action: KeyAction::Deselect,
                     conditions: vec![Condition::Panel(ContextId::Containers)],
@@ -263,35 +305,30 @@ impl Default for KeyBindings {
                 // Containers panel - container actions
                 Binding {
                     keys: vec![KeyCode::Char('s').into()],
-                    display: "s",
                     description: "Docker container start",
                     action: KeyAction::DockerContainerStart,
                     conditions: vec![Condition::Panel(ContextId::Containers)],
                 },
                 Binding {
                     keys: vec![KeyCode::Char('S').into()],
-                    display: "S",
                     description: "Docker container stop",
                     action: KeyAction::DockerContainerStop,
                     conditions: vec![Condition::Panel(ContextId::Containers)],
                 },
                 Binding {
                     keys: vec![KeyCode::Char('r').into()],
-                    display: "r",
                     description: "Docker container restart",
                     action: KeyAction::DockerContainerRestart,
                     conditions: vec![Condition::Panel(ContextId::Containers)],
                 },
                 Binding {
                     keys: vec![KeyCode::Char('m').into()],
-                    display: "m",
                     description: "Docker follow logs",
                     action: KeyAction::DockerFollowLogs,
                     conditions: vec![Condition::Panel(ContextId::Containers)],
                 },
                 Binding {
                     keys: vec![KeyCode::Char('E').into()],
-                    display: "E",
                     description: "Docker console",
                     action: KeyAction::DockerConsole,
                     conditions: vec![Condition::Panel(ContextId::Containers)],
@@ -340,7 +377,9 @@ impl KeyBindings {
     }
 
     pub fn apply_config(&mut self, settings: Settings) {
-        let Some(keybinds) = settings.keybindings else { return };
+        let Some(keybinds) = settings.keybindings else {
+            return;
+        };
 
         for binding in &mut self.map {
             if let Some(keys) = keybinds.get(&binding.action) {

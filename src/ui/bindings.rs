@@ -46,7 +46,7 @@ impl<'a> Widget for Bindings<'a> {
 
         let max_binding_len = listed_bindings
             .iter()
-            .map(|binding| binding.display.len())
+            .map(|binding| binding.display().len())
             .max()
             .unwrap_or(0) as u16;
 
@@ -60,7 +60,7 @@ impl<'a> Widget for Bindings<'a> {
             .iter()
             .map(|binding| {
                 Row::new(vec![
-                    Cell::from(binding.display),
+                    Cell::from(binding.display()),
                     Cell::from(binding.description),
                 ])
             })
@@ -85,7 +85,7 @@ impl<'a> Widget for Bindings<'a> {
             .iter()
             .map(|binding| {
                 Row::new(vec![
-                    Cell::from(binding.display),
+                    Cell::from(binding.display()),
                     Cell::from(binding.description),
                 ])
             })
