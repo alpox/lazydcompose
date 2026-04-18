@@ -133,7 +133,7 @@ pub fn view(model: &mut Model, project_index: usize, frame: &mut Frame, area: Re
         .iter()
         .map(|container| {
             let prefix = if model.has_pending_action(&ResourceId::Container(container.id.clone())) {
-                "⟳ "
+                "↻ "
             } else {
                 ""
             };
