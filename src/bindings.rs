@@ -229,7 +229,10 @@ impl Default for KeyBindings {
                     keys: vec![KeyCode::Esc.into()],
                     description: "Quit info view",
                     action: KeyAction::QuitInfo,
-                    conditions: vec![Condition::View(ViewId::Info)],
+                    conditions: vec![
+                        Condition::View(ViewId::Info),
+                        Condition::Panel(ContextId::Projects),
+                    ],
                 },
                 Binding {
                     keys: vec![KeyCode::PageDown.into()],
