@@ -5,9 +5,7 @@ use crossterm::event::KeyEvent;
 use tokio::sync::mpsc;
 
 use crate::{
-    cli::Project,
-    model::{PendingOperation, ResourceId},
-    util::ResultExt,
+    cli::Project, inspect::ContainerInspect, model::{PendingOperation, ResourceId}, util::ResultExt
 };
 
 /// Application events.
@@ -22,6 +20,8 @@ pub enum Message {
     InitPending(ResourceId, PendingOperation),
     Projects(Result<Vec<Project>, String>),
     ActionResult(Result<String, String>),
+    RefreshProjectInfo(String),
+    ProjectInfo(Result<(String, Vec<ContainerInspect>), String>),
 }
 
 impl<Err: Display> From<Result<String, Err>> for Message {

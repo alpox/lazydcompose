@@ -18,6 +18,7 @@ pub mod bindings;
 pub mod cli;
 pub mod effect;
 pub mod event;
+pub mod inspect;
 pub mod log;
 pub mod model;
 pub mod panels;

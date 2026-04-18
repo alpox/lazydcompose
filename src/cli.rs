@@ -10,6 +10,8 @@ use color_eyre::eyre::{WrapErr, eyre};
 use signal_hook::consts::SIGINT;
 use tokio::{process::Command, signal};
 
+use crate::{inspect::ContainerInspect, model::Model};
+
 #[derive(Clone, Serialize, Deserialize, PartialEq, Eq, Debug, Default)]
 pub enum State {
     #[serde(rename = "created")]
@@ -111,6 +113,10 @@ impl Container {
             &self.names
         }
     }
+
+    pub fn inspect<'a>(&self, model: &'a Model) -> Option<&'a ContainerInspect> {
+        model.inspects.get(&self.id)
+    }
 }
 
 impl ProjectKind {
@@ -160,10 +166,10 @@ pub async fn docker_get_projects() -> color_eyre::Result<Vec<Project>> {
     let mut projects = serde_json::from_str::<Vec<Project>>(&output)
         .wrap_err("Could not parse docker compose ls output")?;
 
-    let conatiners_output =
+    let containers_output =
         cli_action("docker", ["container", "ls", "-a", "--format", "json"]).await?;
 
-    let parts = format!("[{}]", conatiners_output.lines().join(","));
+    let parts = format!("[{}]", containers_output.lines().join(","));
 
     let containers = serde_json::from_str::<Vec<Container>>(&parts)
         .wrap_err("Could not parse docker container list output")?;

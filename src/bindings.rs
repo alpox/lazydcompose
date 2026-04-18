@@ -7,13 +7,14 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     cli::ProjectKind,
-    model::{ContextId, Model, OverlayContextId},
+    model::{ContextId, Model, OverlayContextId, ViewId},
     settings::Settings,
 };
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum Condition {
     Panel(ContextId),
+    View(ViewId),
     OverlayContext(OverlayContextId),
     ComposeProject,
 }
@@ -126,6 +127,10 @@ pub enum KeyAction {
     ChooseAction,
     NextBinding,
     PreviousBinding,
+    Info,
+    QuitInfo,
+    ScrollUp,
+    ScrollDown,
 }
 
 pub struct BindingContext {
@@ -137,6 +142,7 @@ impl From<&Model> for BindingContext {
         let mut tags = HashSet::new();
 
         tags.insert(Condition::Panel(model.active_context));
+        tags.insert(Condition::View(model.active_view));
 
         if let Some(project) = model.selected_project()
             && matches!(project.kind, ProjectKind::Compose(_))
@@ -213,6 +219,30 @@ impl Default for KeyBindings {
                     conditions: vec![],
                 },
                 // Projects panel - navigation
+                Binding {
+                    keys: vec![KeyCode::Char('i').into()],
+                    description: "Show info",
+                    action: KeyAction::Info,
+                    conditions: vec![Condition::Panel(ContextId::Projects)],
+                },
+                Binding {
+                    keys: vec![KeyCode::Esc.into()],
+                    description: "Quit info view",
+                    action: KeyAction::QuitInfo,
+                    conditions: vec![Condition::View(ViewId::Info)],
+                },
+                Binding {
+                    keys: vec![KeyCode::PageDown.into()],
+                    description: "Scroll down",
+                    action: KeyAction::ScrollDown,
+                    conditions: vec![Condition::View(ViewId::Info)],
+                },
+                Binding {
+                    keys: vec![KeyCode::PageUp.into()],
+                    description: "Scroll up",
+                    action: KeyAction::ScrollUp,
+                    conditions: vec![Condition::View(ViewId::Info)],
+                },
                 Binding {
                     keys: vec![KeyCode::Char('k').into(), KeyCode::Up.into()],
                     description: "Move selection up",
@@ -303,6 +333,12 @@ impl Default for KeyBindings {
                     conditions: vec![Condition::Panel(ContextId::Containers)],
                 },
                 // Containers panel - container actions
+                Binding {
+                    keys: vec![KeyCode::Char('i').into()],
+                    description: "Show info",
+                    action: KeyAction::Info,
+                    conditions: vec![Condition::Panel(ContextId::Containers)],
+                },
                 Binding {
                     keys: vec![KeyCode::Char('s').into()],
                     description: "Docker container start",

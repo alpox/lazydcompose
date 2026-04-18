@@ -6,7 +6,7 @@ pub trait ResultExt<T> {
 
 impl<T, E: Display> ResultExt<T> for Result<T, E> {
     fn stringify_err(self) -> Result<T, String> {
-        self.map_err(|e| e.to_string())
+        self.map_err(|e| format!("{e:#}"))
     }
 }
 
@@ -26,6 +26,16 @@ pub fn wrap_around_optional(index: Option<usize>, offset: isize, max: usize) -> 
 
 pub fn args<const N: usize>(items: [impl Into<String>; N]) -> Vec<String> {
     items.into_iter().map(Into::into).collect()
+}
+
+pub fn col_widths<T, const N: usize>(rows: &[T], extract: [fn(&T) -> &str; N]) -> [usize; N] {
+    let mut widths = [0; N];
+    for row in rows {
+        for (i, f) in extract.iter().enumerate() {
+            widths[i] = widths[i].max(f(row).len());
+        }
+    }
+    widths
 }
 
 #[cfg(test)]

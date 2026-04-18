@@ -12,7 +12,7 @@ use crate::{
     cli::{Container, Project, docker_action_tty, docker_project_action},
     effect::Effect,
     event::Message,
-    model::{ContextId, Model, PendingOperation, Prompt, ResourceId},
+    model::{ContextId, Model, PendingOperation, Prompt, ResourceId, ViewId},
     ui::colors::Colorize,
     util::args,
 };
@@ -49,6 +49,27 @@ where
 
 pub fn handle_key(model: &mut Model, key: KeyEvent) -> Effect<Message> {
     match bindings().resolve(&key, model) {
+        Some(KeyAction::Info) => {
+            model.active_view = ViewId::Info;
+            model.info_scroll = 0;
+            match model.selected_project() {
+                Some(p) => Effect::Dispatch(Message::RefreshProjectInfo(p.name)),
+                None => Effect::None,
+            }
+        }
+        Some(KeyAction::QuitInfo) => {
+            model.active_view = ViewId::Main;
+            model.info_scroll = 0;
+            Effect::None
+        }
+        Some(KeyAction::ScrollDown) => {
+            model.info_scroll = model.info_scroll.saturating_add(1);
+            Effect::None
+        }
+        Some(KeyAction::ScrollUp) => {
+            model.info_scroll = model.info_scroll.saturating_sub(1);
+            Effect::None
+        }
         Some(KeyAction::MoveUp) => {
             model.select_previous_container();
             Effect::None

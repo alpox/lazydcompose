@@ -1,6 +1,8 @@
-use std::time::Duration;
+use std::{collections::HashMap, time::Duration};
 
+use color_eyre::eyre::Context;
 use crossterm::event::KeyEvent;
+use itertools::Itertools;
 use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout, Rect},
@@ -10,12 +12,14 @@ use ratatui::{
 
 use crate::{
     bindings::{KeyAction, bindings},
-    cli::docker_get_projects,
+    cli::{cli_action, docker_get_projects},
     effect::Effect,
     event::Message,
-    model::{ContextId, Model, Note, OverlayContextId, RunningState},
+    inspect::ContainerInspect,
+    model::{ContextId, Model, Note, OverlayContextId, RunningState, ViewId},
     panels::{
         containers::{self},
+        project,
         projects::{self},
     },
     subs::Subscription,
@@ -58,6 +62,44 @@ pub fn update(model: &mut Model, msg: Message) -> Effect<Message> {
             let result = docker_get_projects().await;
             Some(Message::Projects(result.stringify_err()))
         }),
+        Message::RefreshProjectInfo(project_name) => {
+            let ids: Vec<String> = model
+                .projects
+                .iter()
+                .find(|p| p.name == project_name)
+                .map(|p| p.containers.iter().map(|c| c.id.clone()).collect())
+                .unwrap_or_default();
+
+            if ids.is_empty() {
+                return Effect::None;
+            }
+
+            Effect::perform(async move {
+                let mut args = vec!["inspect".to_string()];
+                args.extend(ids);
+                let arg_refs: Vec<&str> = args.iter().map(String::as_str).collect();
+
+                let result = cli_action("docker", arg_refs)
+                    .await
+                    .and_then(|out| {
+                        serde_json::from_str::<Vec<ContainerInspect>>(&out)
+                            .wrap_err("parse docker inspect")
+                    })
+                    .map(|inspects| (project_name, inspects))
+                    .stringify_err();
+
+                Some(Message::ProjectInfo(result))
+            })
+        }
+        Message::ProjectInfo(Ok((_, inspects))) => {
+            for inspect in inspects {
+                let key = inspect.id[..12].to_string();
+                model.inspects.insert(key, inspect);
+            }
+
+            Effect::None
+        }
+        Message::ProjectInfo(Err(err)) => note_err(model, err),
         Message::Projects(Ok(projects)) => {
             model.projects = projects;
             if !model.projects.is_empty() && model.active_project_index.is_none() {
@@ -105,7 +147,7 @@ fn handle_key(model: &mut Model, key: KeyEvent) -> Effect<Message> {
             Effect::None
         }
         _ => match model.active_context {
-            ContextId::Projects => projects::handle_key(model, key),
+            ContextId::Projects => project::handle_key(model, key),
             ContextId::Containers => containers::handle_key(model, key),
         },
     }
@@ -116,6 +158,14 @@ pub fn subscriptions(model: &Model) -> Subscription<Message> {
         Duration::from_secs(1),
         Message::RefreshProjects,
     )];
+
+    if model.active_view == ViewId::Info
+        && let Some(project) = model.selected_project() {
+            subscriptions.push(Subscription::Interval(
+                Duration::from_secs(1),
+                Message::RefreshProjectInfo(project.name)
+            ))
+    }
 
     if !model.notes.is_empty() {
         subscriptions.push(Subscription::Interval(
@@ -128,23 +178,32 @@ pub fn subscriptions(model: &Model) -> Subscription<Message> {
 }
 
 struct AppLayout {
-    pub projects: Rect,
+    pub main: Rect,
     pub hints: Rect,
 }
 
 fn layout(area: Rect) -> AppLayout {
-    let [projects, hints] = Layout::default()
+    let [main, hints] = Layout::default()
         .direction(Direction::Vertical)
         .constraints([Constraint::Fill(1), Constraint::Length(1)])
         .areas(area);
 
-    AppLayout { projects, hints }
+    AppLayout { main, hints }
 }
 
 pub fn view(model: &mut Model, frame: &mut Frame) {
     let layout = layout(frame.area());
 
-    projects::view(model, frame, layout.projects);
+    match model.active_view {
+        ViewId::Info if model.active_project_index.is_some() => project::view(
+            model,
+            model.active_project_index.unwrap(),
+            true,
+            frame,
+            layout.main,
+        ),
+        _ => projects::view(model, frame, layout.main),
+    };
 
     Notes::new(model.notes.clone()).render(frame.area(), frame.buffer_mut());
 

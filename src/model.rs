@@ -5,6 +5,7 @@ use itertools::Itertools;
 use ratatui::style::Style;
 use tokio::time::Instant;
 
+use crate::inspect::ContainerInspect;
 use crate::{
     cli::{Container, Project, State},
     effect::Effect,
@@ -17,6 +18,13 @@ pub enum ContextId {
     #[default]
     Projects,
     Containers,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default, Hash)]
+pub enum ViewId {
+    #[default]
+    Main,
+    Info,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -138,16 +146,21 @@ pub struct Model {
     pub prompt: Option<Prompt>,
 
     pub active_context: ContextId,
+    pub active_view: ViewId,
+    pub active_overlay_context: Option<OverlayContextId>,
+
     pub active_project_index: Option<usize>,
     pub active_container_index: Option<usize>,
-
-    pub active_overlay_context: Option<OverlayContextId>,
 
     pub projects_scroll_offset: usize,
 
     pub notes: Vec<Note>,
 
     pub selected_action_index: Option<usize>,
+
+    pub inspects: HashMap<String, ContainerInspect>,
+
+    pub info_scroll: u16,
 }
 
 impl Default for Model {
@@ -160,16 +173,21 @@ impl Default for Model {
             prompt: Default::default(),
 
             active_context: ContextId::default(),
+            active_view: ViewId::default(),
+            active_overlay_context: None,
+
             active_project_index: None,
             active_container_index: None,
-
-            active_overlay_context: None,
 
             projects_scroll_offset: 0,
 
             notes: vec![],
 
             selected_action_index: Some(0),
+
+            inspects: HashMap::default(),
+
+            info_scroll: 0,
         }
     }
 }
