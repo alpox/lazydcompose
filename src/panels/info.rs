@@ -91,7 +91,36 @@ pub fn render_project_info(model: &Model, project: &Project, frame: &mut Frame, 
     let containers: Vec<_> = project
         .containers
         .iter()
-        .map(|container| format!("{:<max_name$} {}", container.names, container.ports))
+        .map(|container| {
+            let ports = container
+                .inspect(model)
+                .map(|i| {
+                    let mut bindings: Vec<_> = i
+                        .host_config
+                        .port_bindings
+                        .iter()
+                        .filter_map(|(port, b)| b.as_ref().map(|b| (port, b)))
+                        .collect();
+                    bindings.sort_by(|a, b| a.0.cmp(b.0));
+                    bindings
+                        .into_iter()
+                        .flat_map(|(port, b)| {
+                            b.iter().map(move |b| {
+                                let host = if b.host_ip.is_empty() {
+                                    "0.0.0.0"
+                                } else {
+                                    b.host_ip.as_str()
+                                };
+                                format!("{}:{}→{}", host, b.host_port, port)
+                            })
+                        })
+                        .collect::<Vec<_>>()
+                        .join(", ")
+                })
+                .filter(|s| !s.is_empty())
+                .unwrap_or_else(|| container.ports.clone());
+            format!("{:<max_name$} {}", container.names, ports)
+        })
         .collect();
 
     let mut networks: BTreeMap<String, Vec<String>> = BTreeMap::new();
@@ -201,7 +230,7 @@ pub fn render_container_info(model: &Model, container: &Container, frame: &mut F
 
     let port_lines: Vec<String> = inspect
         .map(|i| {
-            let mut ports: Vec<_> = i.network_settings.ports.iter().collect();
+            let mut ports: Vec<_> = i.host_config.port_bindings.iter().collect();
             ports.sort_by(|a, b| a.0.cmp(b.0));
             ports
                 .into_iter()
