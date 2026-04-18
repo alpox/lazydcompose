@@ -1,8 +1,7 @@
-use std::{collections::HashMap, time::Duration};
+use std::time::Duration;
 
 use color_eyre::eyre::Context;
 use crossterm::event::KeyEvent;
-use itertools::Itertools;
 use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout, Rect},
@@ -160,11 +159,12 @@ pub fn subscriptions(model: &Model) -> Subscription<Message> {
     )];
 
     if model.active_view == ViewId::Info
-        && let Some(project) = model.selected_project() {
-            subscriptions.push(Subscription::Interval(
-                Duration::from_secs(1),
-                Message::RefreshProjectInfo(project.name)
-            ))
+        && let Some(project) = model.selected_project()
+    {
+        subscriptions.push(Subscription::Interval(
+            Duration::from_secs(1),
+            Message::RefreshProjectInfo(project.name),
+        ))
     }
 
     if !model.notes.is_empty() {
