@@ -45,7 +45,7 @@ pub fn render_project_info(model: &Model, project: &Project, frame: &mut Frame, 
     let block = Block::new()
         .borders(Borders::ALL)
         .border_type(BorderType::Rounded)
-        .title(project.name.clone())
+        .title(format!("{} info", project.name.clone()))
         .border_style(Color::White);
 
     let inner_area = block.inner(area);
@@ -161,16 +161,11 @@ pub fn render_project_info(model: &Model, project: &Project, frame: &mut Frame, 
     );
 }
 
-pub fn render_container_info(
-    model: &Model,
-    container: &Container,
-    frame: &mut Frame,
-    area: Rect,
-) {
+pub fn render_container_info(model: &Model, container: &Container, frame: &mut Frame, area: Rect) {
     let block = Block::new()
         .borders(Borders::ALL)
         .border_type(BorderType::Rounded)
-        .title(container.title().to_string())
+        .title(format!("{} info", container.title()))
         .border_style(Color::White);
 
     let inner_area = block.inner(area);
@@ -232,12 +227,7 @@ pub fn render_container_info(
 
     let mount_lines: Vec<String> = inspect
         .map(|i| {
-            let max_src = i
-                .mounts
-                .iter()
-                .map(|m| m.source.len())
-                .max()
-                .unwrap_or(0);
+            let max_src = i.mounts.iter().map(|m| m.source.len()).max().unwrap_or(0);
             let mut mounts: Vec<_> = i.mounts.iter().collect();
             mounts.sort_by(|a, b| a.destination.cmp(&b.destination));
             mounts
@@ -251,10 +241,7 @@ pub fn render_container_info(
                         MountKind::Cluster => "clst",
                     };
                     let rw = if m.rw { "rw" } else { "ro" };
-                    format!(
-                        "{} {:<max_src$} → {} {}",
-                        kind, m.source, m.destination, rw
-                    )
+                    format!("{} {:<max_src$} → {} {}", kind, m.source, m.destination, rw)
                 })
                 .collect()
         })
