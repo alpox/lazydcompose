@@ -88,10 +88,10 @@ pub fn render_project_info(model: &Model, project: &Project, frame: &mut Frame, 
         .max()
         .unwrap_or(0);
 
-    let containers: Vec<_> = project
+    let port_mappings: Vec<_> = project
         .containers
         .iter()
-        .map(|container| {
+        .filter_map(|container| {
             let ports = container
                 .inspect(model)
                 .map(|i| {
@@ -118,8 +118,8 @@ pub fn render_project_info(model: &Model, project: &Project, frame: &mut Frame, 
                         .join(", ")
                 })
                 .filter(|s| !s.is_empty())
-                .unwrap_or_else(|| container.ports.clone());
-            format!("{:<max_name$} {}", container.names, ports)
+                .or_else(|| (!container.ports.is_empty()).then(|| container.ports.clone()))?;
+            Some(format!("{:<max_name$} {}", container.names, ports))
         })
         .collect();
 
@@ -172,7 +172,7 @@ pub fn render_project_info(model: &Model, project: &Project, frame: &mut Frame, 
     ];
 
     for section in [
-        Section::new("Containers", containers),
+        Section::new("Port mappings", port_mappings),
         Section::new("Networks", network_lines),
         Section::new("Volumes", volume_lines),
     ] {
