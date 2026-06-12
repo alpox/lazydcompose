@@ -73,10 +73,7 @@ impl fmt::Display for Key {
             write!(f, "Alt+")?;
         }
         match self.code {
-            KeyCode::Char(c) => {
-                let upper_c = c.to_uppercase();
-                write!(f, "{upper_c}")
-            }
+            KeyCode::Char(c) => write!(f, "{c}"), 
             KeyCode::Backspace => write!(f, "Backspace"),
             KeyCode::Enter => write!(f, "Enter"),
             KeyCode::Up => write!(f, "↑"),

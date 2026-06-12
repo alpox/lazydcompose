@@ -1,6 +1,6 @@
 [package]
 name = "lazydcompose"
-version = "0.1.0"
+version = "0.1.1"
 description = "An example generated using the event-driven-async template"
 authors = ["elias"]
 license = "MIT"
