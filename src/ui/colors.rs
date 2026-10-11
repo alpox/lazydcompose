@@ -31,7 +31,7 @@ impl Colorize for Project {
         match running {
             r if r == self.containers.len() => Color::Green,
             r if r > 0 => Color::Yellow,
-            _ => Color::White
+            _ => Color::White,
         }
     }
 }

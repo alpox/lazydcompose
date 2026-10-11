@@ -5,14 +5,17 @@ use crossterm::event::KeyEvent;
 use tokio::sync::mpsc;
 
 use crate::{
-    cli::Project, inspect::ContainerInspect, model::{PendingOperation, ResourceId}, util::ResultExt
+    cli::Project,
+    inspect::ContainerInspect,
+    model::{PendingOperation, ResourceId},
+    system,
+    util::ResultExt,
 };
 
 /// Application events.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Message {
     Tick,
-    Quit,
     ClearNotes,
     KeyPress(KeyEvent),
     RefreshProjects,
@@ -22,6 +25,7 @@ pub enum Message {
     ActionResult(Result<String, String>),
     RefreshProjectInfo(String),
     ProjectInfo(Result<(String, Vec<ContainerInspect>), String>),
+    Event(system::Message),
 }
 
 impl<Err: Display> From<Result<String, Err>> for Message {

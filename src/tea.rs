@@ -1,4 +1,4 @@
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use color_eyre::eyre::Context;
 use crossterm::event::KeyEvent;
@@ -15,13 +15,14 @@ use crate::{
     effect::Effect,
     event::Message,
     inspect::ContainerInspect,
-    model::{ContextId, Model, Note, OverlayContextId, RunningState, ViewId},
+    model::{ContextId, Model, Note, OverlayContextId, ViewId},
     panels::{
         containers::{self},
         project,
         projects::{self},
     },
     subs::Subscription,
+    system::{self, Ctx},
     ui::{
         bindings::{self, Bindings},
         notes::Notes,
@@ -29,11 +30,6 @@ use crate::{
     },
     util::ResultExt,
 };
-
-pub fn quit(model: &mut Model) -> Effect<Message> {
-    model.running_state = RunningState::Done;
-    Effect::None
-}
 
 fn note_styled(model: &mut Model, text: impl Into<String>, style: Style) -> Effect<Message> {
     model.notes.push(Note::new(text.into()).style(style));
@@ -50,7 +46,6 @@ fn note_err(model: &mut Model, text: impl Into<String>) -> Effect<Message> {
 
 pub fn update(model: &mut Model, msg: Message) -> Effect<Message> {
     match msg {
-        Message::Quit => quit(model),
         Message::Tick => Effect::None,
         Message::KeyPress(key) => handle_key(model, key),
         Message::InitPending(resource_id, op) => {
@@ -126,7 +121,17 @@ pub fn update(model: &mut Model, msg: Message) -> Effect<Message> {
             Effect::None
         }
         Message::Resize => Effect::None,
+        Message::Event(event) => handle_event(model, event),
     }
+}
+
+fn handle_event(model: &mut Model, event: system::Message) -> Effect<Message> {
+    event
+        .handle(&mut Ctx {
+            db: model,
+            now: Instant::now(),
+        })
+        .map(Message::Event)
 }
 
 fn handle_key(model: &mut Model, key: KeyEvent) -> Effect<Message> {
@@ -138,8 +143,11 @@ fn handle_key(model: &mut Model, key: KeyEvent) -> Effect<Message> {
         };
     }
 
+    if let Some(resolved_event) = bindings().resolve_event(&key, model) {
+        return handle_event(model, resolved_event);
+    }
+
     match bindings().resolve(&key, model) {
-        Some(KeyAction::Quit) => quit(model),
         Some(KeyAction::ShowBindings) => {
             model.active_overlay_context = Some(OverlayContextId::BindingsPopup);
             model.selected_action_index = Some(0);

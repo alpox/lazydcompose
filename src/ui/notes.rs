@@ -97,7 +97,7 @@ impl Widget for Notes {
                 break;
             }
 
-            current_y = current_y.saturating_add(block_height as u16);
+            current_y = current_y.saturating_add(block_height);
 
             let paragraph = Paragraph::new(note.text.as_str())
                 .style(note.style)
