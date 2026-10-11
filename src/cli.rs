@@ -42,7 +42,7 @@ impl CliCommand {
             Err(eyre!("{}", err))
         } else {
             let out = String::from_utf8(output.stdout)
-                .wrap_err("docker container list returned invalid utf8")?;
+                .wrap_err_with(|| format!("{} returned invalid utf8", self.program))?;
             Ok(out)
         }
     }
