@@ -1,3 +1,4 @@
+use color_eyre::eyre::Context;
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, path::Path};
 
@@ -106,6 +107,53 @@ impl ProjectKind {
 }
 
 impl Project {
+    pub fn parse(ls_json: String, containers_json: String) -> color_eyre::Result<Vec<Project>> {
+        let mut projects = serde_json::from_str::<Vec<Project>>(&ls_json)
+            .wrap_err("Could not parse docker compose ls output")?;
+
+        let containers = serde_json::Deserializer::from_str(&containers_json)
+            .into_iter::<Container>()
+            .collect::<Result<Vec<_>, _>>()
+            .wrap_err("Could not parse docker container list output")?;
+
+        let mut containers_by_project: HashMap<Option<String>, Vec<Container>> = HashMap::new();
+
+        for mut container in containers {
+            container.labels = container
+                .labels_raw
+                .split(",")
+                .filter(|s| !s.is_empty())
+                .filter_map(|key_value| {
+                    let (key, value) = key_value.split_once("=")?;
+                    Some((key.to_string(), value.to_string()))
+                })
+                .collect();
+
+            let project_name = container.labels.get("com.docker.compose.project").cloned();
+
+            containers_by_project
+                .entry(project_name)
+                .or_default()
+                .push(container);
+        }
+
+        for project in &mut projects {
+            project.containers = containers_by_project
+                .remove(&Some(project.name.clone()))
+                .unwrap_or_default()
+        }
+
+        if let Some(standalone) = containers_by_project.remove(&None) {
+            projects.push(Project {
+                name: "(standalone)".to_string(),
+                kind: ProjectKind::Standalone,
+                containers: standalone,
+            })
+        }
+
+        Ok(projects)
+    }
+
     pub fn folder(&self) -> Option<String> {
         let config_files = self.kind.as_compose()?.config_files.clone();
         let file = config_files.split(",").next()?.to_string();

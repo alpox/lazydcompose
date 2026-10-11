@@ -2,6 +2,7 @@ use std::time::{Duration, Instant};
 
 use color_eyre::eyre::Context;
 use crossterm::event::KeyEvent;
+use futures::try_join;
 use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout, Rect},
@@ -11,8 +12,8 @@ use ratatui::{
 
 use crate::{
     bindings::bindings,
-    cli::{cli_action, docker_get_projects},
-    data::inspect::ContainerInspect,
+    cli::CliCommand,
+    data::{compose::Project, inspect::ContainerInspect},
     effect::Effect,
     event::Message,
     model::{ContextId, Model, Note, Overlay, ViewId},
@@ -53,8 +54,14 @@ pub fn update(model: &mut Model, msg: Message) -> Effect<Message> {
             Effect::None
         }
         Message::RefreshProjects => Effect::perform(async move {
-            let result = docker_get_projects().await;
-            Some(Message::Projects(result.stringify_err()))
+            let projects = CliCommand::docker(["compose", "ls", "-a", "--format", "json"]);
+            let containers = CliCommand::docker(["container", "ls", "-a", "--format", "json"]);
+
+            let result = try_join!(projects.run(), containers.run())
+                .and_then(|(ls, containers)| Project::parse(ls, containers))
+                .stringify_err();
+
+            Some(Message::Projects(result))
         }),
         Message::RefreshProjectInfo(project_name) => {
             let ids: Vec<String> = model
@@ -73,7 +80,8 @@ pub fn update(model: &mut Model, msg: Message) -> Effect<Message> {
                 args.extend(ids);
                 let arg_refs: Vec<&str> = args.iter().map(String::as_str).collect();
 
-                let result = cli_action("docker", arg_refs)
+                let result = CliCommand::docker(arg_refs)
+                    .run()
                     .await
                     .and_then(|out| {
                         serde_json::from_str::<Vec<ContainerInspect>>(&out)
