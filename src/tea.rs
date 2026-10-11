@@ -12,9 +12,9 @@ use ratatui::{
 use crate::{
     bindings::bindings,
     cli::{cli_action, docker_get_projects},
+    data::inspect::ContainerInspect,
     effect::Effect,
     event::Message,
-    inspect::ContainerInspect,
     model::{ContextId, Model, Note, Overlay, ViewId},
     panels::{
         containers::{self},

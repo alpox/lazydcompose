@@ -5,8 +5,7 @@ use crossterm::event::KeyEvent;
 use tokio::sync::mpsc;
 
 use crate::{
-    cli::Project,
-    inspect::ContainerInspect,
+    data::{compose::Project, inspect::ContainerInspect},
     model::{PendingOperation, ResourceId},
     system,
     util::ResultExt,

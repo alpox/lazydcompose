@@ -9,7 +9,8 @@ use ratatui::{
 
 use crate::{
     bindings::{KeyAction, bindings},
-    cli::{Container, Project, docker_action_tty, docker_project_action},
+    cli::CliCommand,
+    data::compose::{Container, Project},
     effect::Effect,
     event::Message,
     model::{ContextId, Model, PendingOperation, Prompt, ResourceId, ViewId},
@@ -38,7 +39,7 @@ where
                 Effect::Dispatch(Message::InitPending(resource_id, op)),
                 Effect::perform(async move {
                     let args: Vec<_> = f(project.clone(), container.clone()).into_iter().collect();
-                    let result = docker_project_action(project, args).await;
+                    let result = CliCommand::docker(args).cwd(project.folder()).run().await;
                     Some(Message::from(result))
                 }),
             ])
@@ -107,10 +108,14 @@ pub fn handle_key(model: &mut Model, key: KeyEvent) -> Effect<Message> {
         Some(KeyAction::DockerFollowLogs) => {
             match (model.selected_project(), model.selected_container()) {
                 (Some(project), Some(container)) => Effect::perform_blocking(async move {
-                    let _ = docker_action_tty(
-                        project,
-                        ["logs", "--follow", "--since=60m", container.id.as_str()],
-                    )
+                    let _ = CliCommand::docker([
+                        "logs",
+                        "--follow",
+                        "--since=60m",
+                        container.id.as_str(),
+                    ])
+                    .cwd(project.folder())
+                    .run_tty()
                     .await;
                     None
                 }),
@@ -120,11 +125,10 @@ pub fn handle_key(model: &mut Model, key: KeyEvent) -> Effect<Message> {
         Some(KeyAction::DockerConsole) => {
             match (model.selected_project(), model.selected_container()) {
                 (Some(project), Some(container)) => Effect::perform_blocking(async move {
-                    let _ = docker_action_tty(
-                        project,
-                        ["exec", "-it", container.id.as_str(), "/bin/sh"],
-                    )
-                    .await;
+                    let _ = CliCommand::docker(["exec", "-it", container.id.as_str(), "/bin/sh"])
+                        .cwd(project.folder())
+                        .run_tty()
+                        .await;
                     None
                 }),
                 _ => Effect::None,

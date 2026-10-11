@@ -6,17 +6,13 @@ use crossterm::event::{KeyCode, KeyEvent, KeyEventKind, KeyEventState, KeyModifi
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    cli::ProjectKind,
-    events::{
+    data::compose::ProjectKind, events::{
         bindings::{
             CloseBindings, SelectBinding, SelectNextBinding, SelectPreviousBinding, ShowBindings,
         },
         general::QuitEvent,
         prompt::{ClosePrompt, ConfirmPrompt},
-    },
-    model::{ContextId, Model, OverlayContextId, ViewId},
-    settings::Settings,
-    system::Message,
+    }, model::{ContextId, Model, OverlayContextId, ViewId}, settings::Settings, system::Message,
 };
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]

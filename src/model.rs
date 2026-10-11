@@ -5,13 +5,9 @@ use itertools::Itertools;
 use ratatui::style::Style;
 use tokio::time::Instant;
 
-use crate::inspect::ContainerInspect;
-use crate::{
-    cli::{Container, Project, State},
-    effect::Effect,
-    event::Message,
-    util::wrap_around_optional,
-};
+use crate::data::compose::{Container, Project, State};
+use crate::data::inspect::ContainerInspect;
+use crate::{effect::Effect, event::Message, util::wrap_around_optional};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Default, Hash)]
 pub enum ContextId {

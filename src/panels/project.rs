@@ -7,7 +7,8 @@ use ratatui::{
 
 use crate::{
     bindings::{KeyAction, bindings},
-    cli::{Project, docker_project_action},
+    cli::CliCommand,
+    data::compose::Project,
     effect::Effect,
     event::Message,
     model::{Model, PendingOperation, Prompt, ResourceId, ViewId},
@@ -39,7 +40,7 @@ where
 
             let async_effect = Effect::perform(async move {
                 let args: Vec<_> = f(project.clone()).into_iter().collect();
-                let result = docker_project_action(project, args).await;
+                let result = CliCommand::docker(args).cwd(project.folder()).run().await;
                 Some(Message::from(result))
             });
 
