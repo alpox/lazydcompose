@@ -1,6 +1,12 @@
 use crossterm::event::KeyEvent;
 
-use crate::{effect::Effect, model::RunningState, system::Ctx, system::Handler, system::Message};
+use crate::{
+    effect::Effect,
+    event::{self},
+    model::RunningState,
+    system::{Ctx, Handler, Message},
+    tea,
+};
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct QuitEvent;
@@ -18,6 +24,26 @@ pub struct Tick;
 impl Handler for Tick {
     fn handle(self, _ctx: &mut Ctx) -> Effect<Message> {
         Effect::None
+    }
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct Compat {
+    pub message: event::Message,
+}
+
+impl Handler for Compat {
+    fn handle(self, ctx: &mut Ctx) -> Effect<Message> {
+        tea::update(ctx.db, self.message).map(Message::from)
+    }
+}
+
+impl From<event::Message> for Message {
+    fn from(message: event::Message) -> Self {
+        match message {
+            event::Message::Event(event) => event,
+            message => Compat { message }.into(),
+        }
     }
 }
 

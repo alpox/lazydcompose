@@ -136,18 +136,31 @@ impl Debug for Prompt {
 }
 
 #[derive(Debug)]
+pub enum Overlay {
+    Bindings { selected: usize },
+    Prompt(Prompt),
+}
+
+impl Overlay {
+    pub fn id(&self) -> OverlayContextId {
+        match self {
+            Overlay::Bindings { .. } => OverlayContextId::BindingsPopup,
+            Overlay::Prompt(_) => OverlayContextId::Prompt,
+        }
+    }
+}
+
+#[derive(Debug)]
 pub struct Model {
     // Application data
     pub running_state: RunningState,
     pub projects: Vec<Project>,
     pub pending_operations: HashMap<ResourceId, PendingOperation>,
 
-    // UI state
-    pub prompt: Option<Prompt>,
+    pub overlay: Option<Overlay>,
 
     pub active_context: ContextId,
     pub active_view: ViewId,
-    pub active_overlay_context: Option<OverlayContextId>,
 
     pub active_project_index: Option<usize>,
     pub active_container_index: Option<usize>,
@@ -155,8 +168,6 @@ pub struct Model {
     pub projects_scroll_offset: usize,
 
     pub notes: Vec<Note>,
-
-    pub selected_action_index: Option<usize>,
 
     pub inspects: HashMap<String, ContainerInspect>,
 
@@ -170,11 +181,10 @@ impl Default for Model {
             projects: vec![],
             pending_operations: Default::default(),
 
-            prompt: Default::default(),
-
             active_context: ContextId::default(),
             active_view: ViewId::default(),
-            active_overlay_context: None,
+
+            overlay: None,
 
             active_project_index: None,
             active_container_index: None,
@@ -182,8 +192,6 @@ impl Default for Model {
             projects_scroll_offset: 0,
 
             notes: vec![],
-
-            selected_action_index: Some(0),
 
             inspects: HashMap::default(),
 
@@ -352,17 +360,20 @@ impl Model {
     }
 
     pub fn prompt(&mut self, prompt: Prompt) {
-        self.prompt = Some(prompt);
-        self.active_overlay_context = Some(OverlayContextId::Prompt);
+        self.overlay = Some(Overlay::Prompt(prompt));
     }
 
     pub fn take_prompt(&mut self) -> Option<Prompt> {
-        self.active_overlay_context = None;
-        self.prompt.take()
+        match self.overlay.take() {
+            Some(Overlay::Prompt(prompt)) => Some(prompt),
+            other => {
+                self.overlay = other;
+                None
+            }
+        }
     }
 
     pub fn close_prompt(&mut self) {
-        self.prompt = None;
-        self.active_overlay_context = None;
+        self.overlay = None;
     }
 }

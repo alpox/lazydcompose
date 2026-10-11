@@ -10,12 +10,12 @@ use ratatui::{
 };
 
 use crate::{
-    bindings::{KeyAction, bindings},
+    bindings::bindings,
     cli::{cli_action, docker_get_projects},
     effect::Effect,
     event::Message,
     inspect::ContainerInspect,
-    model::{ContextId, Model, Note, OverlayContextId, ViewId},
+    model::{ContextId, Model, Note, Overlay, ViewId},
     panels::{
         containers::{self},
         project,
@@ -24,7 +24,7 @@ use crate::{
     subs::Subscription,
     system::{self, Ctx},
     ui::{
-        bindings::{self, Bindings},
+        bindings::Bindings,
         notes::Notes,
         prompt::{self},
     },
@@ -135,28 +135,13 @@ fn handle_event(model: &mut Model, event: system::Message) -> Effect<Message> {
 }
 
 fn handle_key(model: &mut Model, key: KeyEvent) -> Effect<Message> {
-    if model.active_overlay_context.is_some() {
-        return match model.active_overlay_context {
-            Some(OverlayContextId::BindingsPopup) => bindings::handle_key(model, key),
-            Some(OverlayContextId::Prompt) => prompt::handle_key(model, key),
-            None => Effect::None,
-        };
-    }
-
     if let Some(resolved_event) = bindings().resolve_event(&key, model) {
         return handle_event(model, resolved_event);
     }
 
-    match bindings().resolve(&key, model) {
-        Some(KeyAction::ShowBindings) => {
-            model.active_overlay_context = Some(OverlayContextId::BindingsPopup);
-            model.selected_action_index = Some(0);
-            Effect::None
-        }
-        _ => match model.active_context {
-            ContextId::Projects => project::handle_key(model, key),
-            ContextId::Containers => containers::handle_key(model, key),
-        },
+    match model.active_context {
+        ContextId::Projects => project::handle_key(model, key),
+        ContextId::Containers => containers::handle_key(model, key),
     }
 }
 
@@ -215,15 +200,13 @@ pub fn view(model: &mut Model, frame: &mut Frame) {
 
     Notes::new(model.notes.clone()).render(frame.area(), frame.buffer_mut());
 
-    match model.active_overlay_context {
-        Some(OverlayContextId::BindingsPopup) => {
+    match &model.overlay {
+        Some(Overlay::Bindings { selected: _ }) => {
             Bindings::new(model).render(frame.area(), frame.buffer_mut());
         }
-        Some(OverlayContextId::Prompt) => {
-            if let Some(prompt) = &model.prompt {
-                prompt::Prompt::new(&prompt.title, &prompt.text)
-                    .render(frame.area(), frame.buffer_mut());
-            }
+        Some(Overlay::Prompt(prompt)) => {
+            prompt::Prompt::new(&prompt.title, &prompt.text)
+                .render(frame.area(), frame.buffer_mut());
         }
         None => {}
     }

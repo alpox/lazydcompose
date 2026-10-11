@@ -7,7 +7,13 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     cli::ProjectKind,
-    events::general::QuitEvent,
+    events::{
+        bindings::{
+            CloseBindings, SelectBinding, SelectNextBinding, SelectPreviousBinding, ShowBindings,
+        },
+        general::QuitEvent,
+        prompt::{ClosePrompt, ConfirmPrompt},
+    },
     model::{ContextId, Model, OverlayContextId, ViewId},
     settings::Settings,
     system::Message,
@@ -134,10 +140,23 @@ pub enum KeyAction {
 
 pub struct BindingContext {
     tags: HashSet<Condition>,
+    modal: bool,
 }
 
 impl From<&Model> for BindingContext {
     fn from(model: &Model) -> Self {
+        match &model.overlay {
+            Some(overlay) => Self {
+                tags: HashSet::from([Condition::OverlayContext(overlay.id())]),
+                modal: true,
+            },
+            None => Self::beneath_overlay(model)
+        }
+    }
+}
+
+impl BindingContext {
+    fn beneath_overlay(model: &Model) -> Self {
         let mut tags = HashSet::new();
 
         tags.insert(Condition::Panel(model.active_context));
@@ -149,17 +168,16 @@ impl From<&Model> for BindingContext {
             tags.insert(Condition::ComposeProject);
         }
 
-        Self::new(tags)
+        Self { tags, modal: false }
     }
 }
 
 impl BindingContext {
-    pub fn new(tags: impl Into<HashSet<Condition>>) -> Self {
-        Self { tags: tags.into() }
-    }
-
     fn satisfies(&self, conditions: &[Condition]) -> bool {
-        conditions.is_empty() || conditions.iter().all(|cond| self.tags.contains(cond))
+        if conditions.is_empty() {
+            return !self.modal
+        }
+        conditions.iter().all(|cond| self.tags.contains(cond))
     }
 }
 
@@ -201,6 +219,57 @@ impl Default for KeyBindings {
     fn default() -> Self {
         Self {
             map: vec![
+                // Bindings panel
+                Binding {
+                    keys: vec![KeyCode::Char('?').into()],
+                    description: "Show keybindings",
+                    action: KeyAction::ShowBindings,
+                    event: Some(ShowBindings.into()),
+                    conditions: vec![],
+                },
+                Binding {
+                    keys: vec![KeyCode::Char('k').into(), KeyCode::Up.into()],
+                    description: "Select previous binding",
+                    action: KeyAction::MoveUp,
+                    event: Some(SelectPreviousBinding.into()),
+                    conditions: vec![Condition::OverlayContext(OverlayContextId::BindingsPopup)],
+                },
+                Binding {
+                    keys: vec![KeyCode::Char('j').into(), KeyCode::Down.into()],
+                    description: "Select next binding",
+                    action: KeyAction::MoveDown,
+                    event: Some(SelectNextBinding.into()),
+                    conditions: vec![Condition::OverlayContext(OverlayContextId::BindingsPopup)],
+                },
+                Binding {
+                    keys: vec![KeyCode::Enter.into()],
+                    description: "Select binding",
+                    action: KeyAction::Select,
+                    event: Some(SelectBinding.into()),
+                    conditions: vec![Condition::OverlayContext(OverlayContextId::BindingsPopup)],
+                },
+                Binding {
+                    keys: vec![KeyCode::Char('q').into(), KeyCode::Esc.into()],
+                    description: "Close bindings popup",
+                    action: KeyAction::Quit,
+                    event: Some(CloseBindings.into()),
+                    conditions: vec![Condition::OverlayContext(OverlayContextId::BindingsPopup)],
+                },
+                // Prompt panel
+                Binding {
+                    keys: vec![KeyCode::Enter.into()],
+                    description: "Select binding",
+                    action: KeyAction::Select,
+                    event: Some(ConfirmPrompt.into()),
+                    conditions: vec![Condition::OverlayContext(OverlayContextId::Prompt)],
+                },
+                Binding {
+                    keys: vec![KeyCode::Char('q').into(), KeyCode::Esc.into()],
+                    description: "Close bindings popup",
+                    action: KeyAction::Quit,
+                    event: Some(ClosePrompt.into()),
+                    conditions: vec![Condition::OverlayContext(OverlayContextId::Prompt)],
+                },
                 // Global
                 Binding {
                     keys: vec![
@@ -211,13 +280,6 @@ impl Default for KeyBindings {
                     description: "Quit application",
                     action: KeyAction::Quit,
                     event: Some(QuitEvent.into()),
-                    conditions: vec![],
-                },
-                Binding {
-                    keys: vec![KeyCode::Char('?').into()],
-                    description: "Show keybindings",
-                    action: KeyAction::ShowBindings,
-                    event: None,
                     conditions: vec![],
                 },
                 // Projects panel - navigation
@@ -434,7 +496,7 @@ impl KeyBindings {
     }
 
     pub fn bindings_for(&self, model: &Model) -> Vec<Binding> {
-        let binding_context = BindingContext::from(model);
+        let binding_context = BindingContext::beneath_overlay(model);
 
         self.map
             .iter()
