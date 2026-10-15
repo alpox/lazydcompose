@@ -9,9 +9,7 @@ use crate::{
     data::compose::ProjectKind, events::{
         bindings::{
             CloseBindings, SelectBinding, SelectNextBinding, SelectPreviousBinding, ShowBindings,
-        },
-        general::QuitEvent,
-        prompt::{ClosePrompt, ConfirmPrompt},
+        }, general::QuitEvent, project::{MoveDown, MoveUp, QuitInfo, ScrollDown, ScrollUp, ShowInfo}, prompt::{ClosePrompt, ConfirmPrompt},
     }, model::{ContextId, Model, OverlayContextId, ViewId}, settings::Settings, system::Message,
 };
 
@@ -283,14 +281,14 @@ impl Default for KeyBindings {
                     keys: vec![KeyCode::Char('i').into()],
                     description: "Show info",
                     action: KeyAction::Info,
-                    event: None,
+                    event: Some(ShowInfo.into()),
                     conditions: vec![Condition::Panel(ContextId::Projects)],
                 },
                 Binding {
                     keys: vec![KeyCode::Esc.into()],
                     description: "Quit info view",
                     action: KeyAction::QuitInfo,
-                    event: None,
+                    event: Some(QuitInfo.into()),
                     conditions: vec![
                         Condition::View(ViewId::Info),
                         Condition::Panel(ContextId::Projects),
@@ -300,28 +298,28 @@ impl Default for KeyBindings {
                     keys: vec![KeyCode::PageDown.into()],
                     description: "Scroll down",
                     action: KeyAction::ScrollDown,
-                    event: None,
+                    event: Some(ScrollDown.into()),
                     conditions: vec![Condition::View(ViewId::Info)],
                 },
                 Binding {
                     keys: vec![KeyCode::PageUp.into()],
                     description: "Scroll up",
                     action: KeyAction::ScrollUp,
-                    event: None,
+                    event: Some(ScrollUp.into()),
                     conditions: vec![Condition::View(ViewId::Info)],
                 },
                 Binding {
                     keys: vec![KeyCode::Char('k').into(), KeyCode::Up.into()],
                     description: "Move selection up",
                     action: KeyAction::MoveUp,
-                    event: None,
+                    event: Some(MoveUp.into()),
                     conditions: vec![Condition::Panel(ContextId::Projects)],
                 },
                 Binding {
                     keys: vec![KeyCode::Char('j').into(), KeyCode::Down.into()],
                     description: "Move selection down",
                     action: KeyAction::MoveDown,
-                    event: None,
+                    event: Some(MoveDown.into()),
                     conditions: vec![Condition::Panel(ContextId::Projects)],
                 },
                 Binding {

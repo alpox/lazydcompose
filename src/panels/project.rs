@@ -11,7 +11,7 @@ use crate::{
     data::compose::Project,
     effect::Effect,
     event::Message,
-    model::{Model, PendingOperation, Prompt, ResourceId, ViewId},
+    model::{Model, PendingOperation, Prompt, ResourceId},
     panels::{
         containers::{self},
         info,
@@ -54,35 +54,6 @@ where
 
 pub fn handle_key(model: &mut Model, key: KeyEvent) -> Effect<Message> {
     match bindings().resolve(&key, model) {
-        Some(KeyAction::Info) => {
-            model.active_view = ViewId::Info;
-            model.info_scroll = 0;
-            match model.selected_project() {
-                Some(p) => Effect::Dispatch(Message::RefreshProjectInfo(p.name)),
-                None => Effect::None,
-            }
-        }
-        Some(KeyAction::QuitInfo) => {
-            model.active_view = ViewId::Main;
-            model.info_scroll = 0;
-            Effect::None
-        }
-        Some(KeyAction::ScrollDown) => {
-            model.info_scroll = model.info_scroll.saturating_add(1);
-            Effect::None
-        }
-        Some(KeyAction::ScrollUp) => {
-            model.info_scroll = model.info_scroll.saturating_sub(1);
-            Effect::None
-        }
-        Some(KeyAction::MoveUp) => {
-            model.select_previous_project();
-            Effect::None
-        }
-        Some(KeyAction::MoveDown) => {
-            model.select_next_project();
-            Effect::None
-        }
         Some(KeyAction::DockerComposeStop) => {
             if let Some(project) = &model.selected_project() {
                 model.prompt(Prompt::new(
