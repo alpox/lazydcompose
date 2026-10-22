@@ -9,11 +9,19 @@ use ratatui::{
 };
 
 use crate::{
-    bindings::bindings, effect::Effect, event::Message, events::project::{RefreshProjectInfo, RefreshProjects}, model::{ContextId, Model, Note, Overlay, ViewId}, panels::{
+    bindings::bindings,
+    effect::Effect,
+    event::Message,
+    events::project::{RefreshProjectInfo, RefreshProjects},
+    model::{ContextId, Model, Note, Overlay, ViewId},
+    panels::{
         containers::{self},
         project,
         projects::{self},
-    }, subs::Subscription, system::{self, Ctx}, ui::{
+    },
+    subs::Subscription,
+    system::{self, Ctx},
+    ui::{
         bindings::Bindings,
         notes::Notes,
         prompt::{self},
@@ -103,9 +111,12 @@ pub fn subscriptions(model: &Model) -> Subscription<Message> {
     {
         subscriptions.push(Subscription::Interval(
             Duration::from_secs(1),
-            Message::Event(RefreshProjectInfo {
-                project_name: project.name
-            }.into())
+            Message::Event(
+                RefreshProjectInfo {
+                    project_name: project.name,
+                }
+                .into(),
+            ),
         ))
     }
 
