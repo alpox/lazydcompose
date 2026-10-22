@@ -1,8 +1,6 @@
 use std::time::{Duration, Instant};
 
-use color_eyre::eyre::Context;
 use crossterm::event::KeyEvent;
-use futures::try_join;
 use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout, Rect},
@@ -11,25 +9,15 @@ use ratatui::{
 };
 
 use crate::{
-    bindings::bindings,
-    cli::CliCommand,
-    data::{compose::Project, inspect::ContainerInspect},
-    effect::Effect,
-    event::Message,
-    model::{ContextId, Model, Note, Overlay, ViewId},
-    panels::{
+    bindings::bindings, effect::Effect, event::Message, events::project::{RefreshProjectInfo, RefreshProjects}, model::{ContextId, Model, Note, Overlay, ViewId}, panels::{
         containers::{self},
         project,
         projects::{self},
-    },
-    subs::Subscription,
-    system::{self, Ctx},
-    ui::{
+    }, subs::Subscription, system::{self, Ctx}, ui::{
         bindings::Bindings,
         notes::Notes,
         prompt::{self},
     },
-    util::ResultExt,
 };
 
 fn note_styled(model: &mut Model, text: impl Into<String>, style: Style) -> Effect<Message> {
@@ -53,55 +41,6 @@ pub fn update(model: &mut Model, msg: Message) -> Effect<Message> {
             model.init_pending_action(resource_id, op);
             Effect::None
         }
-        Message::RefreshProjects => Effect::perform(async move {
-            let projects = CliCommand::docker(["compose", "ls", "-a", "--format", "json"]);
-            let containers = CliCommand::docker(["container", "ls", "-a", "--format", "json"]);
-
-            let result = try_join!(projects.run(), containers.run())
-                .and_then(|(ls, containers)| Project::parse(ls, containers))
-                .stringify_err();
-
-            Some(Message::Projects(result))
-        }),
-        Message::RefreshProjectInfo(project_name) => {
-            let ids: Vec<String> = model
-                .projects
-                .iter()
-                .find(|p| p.name == project_name)
-                .map(|p| p.containers.iter().map(|c| c.id.clone()).collect())
-                .unwrap_or_default();
-
-            if ids.is_empty() {
-                return Effect::None;
-            }
-
-            Effect::perform(async move {
-                let mut args = vec!["inspect".to_string()];
-                args.extend(ids);
-                let arg_refs: Vec<&str> = args.iter().map(String::as_str).collect();
-
-                let result = CliCommand::docker(arg_refs)
-                    .run()
-                    .await
-                    .and_then(|out| {
-                        serde_json::from_str::<Vec<ContainerInspect>>(&out)
-                            .wrap_err("parse docker inspect")
-                    })
-                    .map(|inspects| (project_name, inspects))
-                    .stringify_err();
-
-                Some(Message::ProjectInfo(result))
-            })
-        }
-        Message::ProjectInfo(Ok((_, inspects))) => {
-            for inspect in inspects {
-                let key = inspect.id[..12].to_string();
-                model.inspects.insert(key, inspect);
-            }
-
-            Effect::None
-        }
-        Message::ProjectInfo(Err(err)) => note_err(model, err),
         Message::Projects(Ok(projects)) => {
             model.projects = projects;
             if !model.projects.is_empty() && model.active_project_index.is_none() {
@@ -156,7 +95,7 @@ fn handle_key(model: &mut Model, key: KeyEvent) -> Effect<Message> {
 pub fn subscriptions(model: &Model) -> Subscription<Message> {
     let mut subscriptions = vec![Subscription::Interval(
         Duration::from_secs(1),
-        Message::RefreshProjects,
+        Message::Event(RefreshProjects.into()),
     )];
 
     if model.active_view == ViewId::Info
@@ -164,7 +103,9 @@ pub fn subscriptions(model: &Model) -> Subscription<Message> {
     {
         subscriptions.push(Subscription::Interval(
             Duration::from_secs(1),
-            Message::RefreshProjectInfo(project.name),
+            Message::Event(RefreshProjectInfo {
+                project_name: project.name
+            }.into())
         ))
     }
 

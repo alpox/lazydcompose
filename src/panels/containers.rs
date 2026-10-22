@@ -13,6 +13,7 @@ use crate::{
     data::compose::{Container, Project},
     effect::Effect,
     event::Message,
+    events::project::RefreshProjectInfo,
     model::{ContextId, Model, PendingOperation, Prompt, ResourceId, ViewId},
     ui::colors::Colorize,
     util::args,
@@ -54,7 +55,12 @@ pub fn handle_key(model: &mut Model, key: KeyEvent) -> Effect<Message> {
             model.active_view = ViewId::Info;
             model.info_scroll = 0;
             match model.selected_project() {
-                Some(p) => Effect::Dispatch(Message::RefreshProjectInfo(p.name)),
+                Some(p) => Effect::Dispatch(Message::Event(
+                    RefreshProjectInfo {
+                        project_name: p.name,
+                    }
+                    .into(),
+                )),
                 None => Effect::None,
             }
         }

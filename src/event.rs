@@ -5,7 +5,7 @@ use crossterm::event::KeyEvent;
 use tokio::sync::mpsc;
 
 use crate::{
-    data::{compose::Project, inspect::ContainerInspect},
+    data::compose::Project,
     model::{PendingOperation, ResourceId},
     system,
     util::ResultExt,
@@ -17,13 +17,10 @@ pub enum Message {
     Tick,
     ClearNotes,
     KeyPress(KeyEvent),
-    RefreshProjects,
     Resize,
     InitPending(ResourceId, PendingOperation),
     Projects(Result<Vec<Project>, String>),
     ActionResult(Result<String, String>),
-    RefreshProjectInfo(String),
-    ProjectInfo(Result<(String, Vec<ContainerInspect>), String>),
     Event(system::Message),
 }
 

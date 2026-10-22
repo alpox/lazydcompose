@@ -88,7 +88,7 @@ impl Handler for RefreshProjects {
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct RefreshProjectInfo {
-    project_name: String,
+    pub project_name: String,
 }
 
 impl Handler for RefreshProjectInfo {
