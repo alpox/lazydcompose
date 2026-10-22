@@ -3,13 +3,13 @@ use futures::try_join;
 use ratatui::style::{Color, Style};
 
 use crate::{
-    cli::CliCommand, data::{compose::Project, inspect::ContainerInspect}, effect::Effect, model::{Note, Prompt, ViewId}, system::{Ctx, Handler, Message}, util::ResultExt,
+    cli::CliCommand,
+    data::{compose::Project, inspect::ContainerInspect},
+    effect::Effect,
+    model::{Note, ViewId},
+    system::{Ctx, Handler, Message},
+    util::ResultExt,
 };
-
-#[derive(Clone, Debug, PartialEq)]
-pub struct SetProjects {
-    projects: Vec<Project>,
-}
 
 fn note_styled(ctx: &mut Ctx, text: impl Into<String>, style: Style) -> Effect<Message> {
     ctx.db.notes.push(Note::new(text.into()).style(style));
@@ -20,31 +20,48 @@ fn note_err(ctx: &mut Ctx, text: impl Into<String>) -> Effect<Message> {
     note_styled(ctx, text, Style::new().fg(Color::Red))
 }
 
+#[derive(Clone, Debug, PartialEq)]
+pub struct NoteErr {
+    pub text: String,
+}
+
+impl Handler for NoteErr {
+    fn handle(self, ctx: &mut Ctx) -> Effect<Message> {
+        note_err(ctx, self.text)
+    }
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct SetProjects {
+    projects: Vec<Project>,
+}
+
 impl Handler for SetProjects {
     fn handle(self, ctx: &mut Ctx) -> Effect<Message> {
         ctx.db.projects = self.projects;
+        if !ctx.db.projects.is_empty() && ctx.db.active_project_index.is_none() {
+            ctx.db.active_project_index = Some(0);
+        }
+        ctx.db.update_pending_actions();
         Effect::None
     }
 }
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct SetProjectInfo {
-    project_info: Result<(String, Vec<ContainerInspect>), String>,
+    project_info: (String, Vec<ContainerInspect>),
 }
 
 impl Handler for SetProjectInfo {
     fn handle(self, ctx: &mut Ctx) -> Effect<Message> {
-        match self.project_info {
-            Err(err) => note_err(ctx, err),
-            Ok((_, inspects)) => {
-                for inspect in inspects {
-                    let key = inspect.id[..12].to_string();
-                    ctx.db.inspects.insert(key, inspect);
-                }
+        let (_, inspects) = self.project_info;
 
-                Effect::None
-            }
+        for inspect in inspects {
+            let key = inspect.id[..12].to_string();
+            ctx.db.inspects.insert(key, inspect);
         }
+
+        Effect::None
     }
 }
 
@@ -63,7 +80,7 @@ impl Handler for RefreshProjects {
 
             match result {
                 Ok(projects) => Some(SetProjects { projects }.into()),
-                Err(_) => None,
+                Err(err) => Some(NoteErr { text: err }.into()),
             }
         })
     }
@@ -103,12 +120,10 @@ impl Handler for RefreshProjectInfo {
                 .map(|inspects| (self.project_name, inspects))
                 .stringify_err();
 
-            Some(
-                SetProjectInfo {
-                    project_info: result,
-                }
-                .into(),
-            )
+            match result {
+                Ok(project_info) => Some(SetProjectInfo { project_info }.into()),
+                Err(err) => Some(NoteErr { text: err }.into()),
+            }
         })
     }
 }
