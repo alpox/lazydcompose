@@ -3,7 +3,13 @@ use futures::try_join;
 use ratatui::style::{Color, Style};
 
 use crate::{
-    cli::CliCommand, data::{compose::Project, inspect::ContainerInspect}, effect::Effect, events::general::Batch, model::{ContextId, Note, PendingOperation, Prompt, ResourceId, ViewId}, system::{Ctx, Handler, Message}, util::{ResultExt, args},
+    cli::CliCommand,
+    data::{compose::Project, inspect::ContainerInspect},
+    effect::Effect,
+    events::general::Batch,
+    model::{ContextId, Note, PendingOperation, Prompt, ResourceId, ViewId},
+    system::{Ctx, Handler, Message},
+    util::{ResultExt, args},
 };
 
 fn note_styled(ctx: &mut Ctx, text: impl Into<String>, style: Style) -> Effect<Message> {
@@ -15,18 +21,26 @@ fn note_err(ctx: &mut Ctx, text: impl Into<String>) -> Effect<Message> {
     note_styled(ctx, text, Style::new().fg(Color::Red))
 }
 
-pub fn docker_compose_action<F, R>(project: Project, op: PendingOperation, f: F) -> Effect<Message>
-where
-    F: FnOnce(Project) -> R + Send + 'static,
-    R: IntoIterator<Item = String> + Send,
-{
-    let mut effects: Vec<_> = project
-        .containers
+async fn fetch_projects() -> Result<Vec<Project>, String> {
+    let projects = CliCommand::docker(["compose", "ls", "-a", "--format", "json"]);
+    let containers = CliCommand::docker(["container", "ls", "-a", "--format", "json"]);
+
+    try_join!(projects.run(), containers.run())
+        .and_then(|(ls, containers)| Project::parse(ls, containers))
+        .stringify_err()
+}
+
+pub fn pending_action(
+    command: CliCommand,
+    resource_ids: Vec<ResourceId>,
+    op: PendingOperation,
+) -> Effect<Message> {
+    let mut effects: Vec<_> = resource_ids
         .iter()
-        .map(|container| {
+        .map(|resource_id| {
             Effect::Dispatch(
                 InitPendingAction {
-                    resource_id: ResourceId::Container(container.id.clone()),
+                    resource_id: resource_id.clone(),
                     pending_op: op.clone(),
                 }
                 .into(),
@@ -34,28 +48,37 @@ where
         })
         .collect();
 
-    let async_effect = Effect::perform(async move {
-        let args: Vec<_> = f(project.clone()).into_iter().collect();
-        let result = CliCommand::docker(args).cwd(project.folder()).run().await;
+    effects.push(Effect::perform(async move {
+        let mut messages: Vec<Message> = Vec::new();
 
-        match result {
-            Ok(_) => Some(UpdatePendingActions.into()),
-            Err(err) => Some(
-                Batch::new([
-                    UpdatePendingActions.into(),
-                    NoteErr {
-                        text: err.to_string(),
-                    }
-                    .into(),
-                ])
-                .into(),
-            ),
+        if let Err(text) = command.run().await.stringify_err() {
+            messages.push(NoteErr { text }.into());
         }
-    });
+        if let Ok(projects) = fetch_projects().await {
+            messages.push(SetProjects { projects }.into());
+        }
+        messages.push(StopPendingActions { resource_ids }.into());
 
-    effects.push(async_effect);
+        Some(Batch(messages).into())
+    }));
 
     Effect::Batch(effects)
+}
+
+pub fn docker_compose_action<F, R>(project: Project, op: PendingOperation, f: F) -> Effect<Message>
+where
+    F: FnOnce(Project) -> R + Send + 'static,
+    R: IntoIterator<Item = String> + Send,
+{
+    let args: Vec<_> = f(project.clone()).into_iter().collect();
+    let command = CliCommand::docker(args).cwd(project.folder());
+    let resource_ids = project
+        .containers
+        .iter()
+        .map(|container| ResourceId::Container(container.id.clone()))
+        .collect();
+
+    pending_action(command, resource_ids, op)
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -77,18 +100,7 @@ pub struct InitPendingAction {
 
 impl Handler for InitPendingAction {
     fn handle(self, ctx: &mut Ctx) -> Effect<Message> {
-        ctx.db
-            .init_pending_action(self.resource_id, self.pending_op);
-        Effect::None
-    }
-}
-
-#[derive(Clone, Debug, PartialEq)]
-pub struct UpdatePendingActions;
-
-impl Handler for UpdatePendingActions {
-    fn handle(self, ctx: &mut Ctx) -> Effect<Message> {
-        ctx.db.update_pending_actions();
+        ctx.db.init_pending_action(self.resource_id, self.pending_op);
         Effect::None
     }
 }
@@ -104,7 +116,6 @@ impl Handler for SetProjects {
         if !ctx.db.projects.is_empty() && ctx.db.active_project_index.is_none() {
             ctx.db.active_project_index = Some(0);
         }
-        ctx.db.update_pending_actions();
         Effect::None
     }
 }
@@ -133,14 +144,7 @@ pub struct RefreshProjects;
 impl Handler for RefreshProjects {
     fn handle(self, _ctx: &mut Ctx) -> Effect<Message> {
         Effect::perform(async move {
-            let projects = CliCommand::docker(["compose", "ls", "-a", "--format", "json"]);
-            let containers = CliCommand::docker(["container", "ls", "-a", "--format", "json"]);
-
-            let result = try_join!(projects.run(), containers.run())
-                .and_then(|(ls, containers)| Project::parse(ls, containers))
-                .stringify_err();
-
-            match result {
+            match fetch_projects().await {
                 Ok(projects) => Some(SetProjects { projects }.into()),
                 Err(err) => Some(NoteErr { text: err }.into()),
             }
@@ -320,7 +324,7 @@ impl Handler for DockerComposeDown {
                 "Are you sure that you want to down the project '{}'?",
                 project.name
             ),
-            docker_compose_action(project, PendingOperation::Starting, |_| {
+            docker_compose_action(project, PendingOperation::Stopping, |_| {
                 args(["compose", "down"])
             }),
         ));
@@ -336,7 +340,7 @@ impl Handler for DockerComposeRestart {
     fn handle(self, _ctx: &mut Ctx) -> Effect<Message> {
         let project = self.0;
 
-        docker_compose_action(project, PendingOperation::Starting, |_| {
+        docker_compose_action(project, PendingOperation::Restarting, |_| {
             args(["compose", "restart"])
         })
     }
@@ -361,6 +365,21 @@ impl Handler for DeselectProject {
     fn handle(self, ctx: &mut Ctx) -> Effect<Message> {
         ctx.db.active_context = ContextId::Projects;
         ctx.db.active_container_index = None;
+
+        Effect::None
+    }
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct StopPendingActions {
+    pub resource_ids: Vec<ResourceId>,
+}
+
+impl Handler for StopPendingActions {
+    fn handle(self, ctx: &mut Ctx) -> Effect<Message> {
+        for resource_id in &self.resource_ids {
+            ctx.db.stop_pending_action(resource_id);
+        }
 
         Effect::None
     }

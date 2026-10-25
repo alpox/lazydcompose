@@ -49,20 +49,6 @@ pub enum PendingOperation {
     Restarting,
 }
 
-trait OperationComplete {
-    fn is_complete(&self, op: &PendingOperation) -> bool;
-}
-
-impl OperationComplete for Container {
-    fn is_complete(&self, op: &PendingOperation) -> bool {
-        match op {
-            PendingOperation::Starting => self.state == State::Running,
-            PendingOperation::Stopping => self.state == State::Exited,
-            PendingOperation::Restarting => self.state == State::Running,
-        }
-    }
-}
-
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Note {
     pub timestamp: Instant,
@@ -321,24 +307,6 @@ impl Model {
                 .find(|container| container.id == id)
                 .cloned()
         })
-    }
-
-    pub fn update_pending_actions(&mut self) {
-        let to_remove: Vec<_> = self
-            .pending_operations
-            .iter()
-            .filter(|(resource_id, op)| match resource_id {
-                ResourceId::Container(id) => self
-                    .container_by_id(id)
-                    .map(|container| container.is_complete(op))
-                    .unwrap_or(false),
-            })
-            .map(|(k, _)| k.clone())
-            .collect();
-
-        for id in to_remove {
-            self.pending_operations.remove(&id);
-        }
     }
 
     pub fn has_pending_action(&self, resource_id: &ResourceId) -> bool {

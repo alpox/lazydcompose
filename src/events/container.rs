@@ -2,10 +2,7 @@ use crate::{
     cli::CliCommand,
     data::compose::{Container, Project},
     effect::Effect,
-    events::{
-        general::Batch,
-        project::{InitPendingAction, NoteErr, UpdatePendingActions},
-    },
+    events::project::pending_action,
     model::{PendingOperation, Prompt, ResourceId},
     system::{Ctx, Handler, Message},
     util::args,
@@ -22,33 +19,11 @@ where
     R: IntoIterator<Item = String> + Send,
 {
     let resource_id = ResourceId::Container(container.id.clone());
-    Effect::Batch(vec![
-        Effect::Dispatch(
-            InitPendingAction {
-                resource_id,
-                pending_op: op,
-            }
-            .into(),
-        ),
-        Effect::perform(async move {
-            let args: Vec<_> = f(project.clone(), container.clone()).into_iter().collect();
-            let result = CliCommand::docker(args).cwd(project.folder()).run().await;
+    let folder = project.folder();
+    let args: Vec<_> = f(project, container).into_iter().collect();
+    let command = CliCommand::docker(args).cwd(folder);
 
-            match result {
-                Ok(_) => Some(UpdatePendingActions.into()),
-                Err(err) => Some(
-                    Batch::new([
-                        UpdatePendingActions.into(),
-                        NoteErr {
-                            text: err.to_string(),
-                        }
-                        .into(),
-                    ])
-                    .into(),
-                ),
-            }
-        }),
-    ])
+    pending_action(command, vec![resource_id], op)
 }
 
 #[derive(Clone, Debug, PartialEq)]
