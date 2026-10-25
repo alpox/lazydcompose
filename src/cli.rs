@@ -1,8 +1,15 @@
 use crossterm::style::Stylize;
-use std::{os::unix::process::ExitStatusExt, process::ExitStatus};
+use std::{
+    os::unix::process::ExitStatusExt,
+    process::ExitStatus,
+    sync::{
+        Arc,
+        atomic::{AtomicBool, Ordering},
+    },
+};
 
 use color_eyre::eyre::{WrapErr, eyre};
-use signal_hook::consts::SIGINT;
+use signal_hook::{consts::SIGINT, flag, low_level};
 use tokio::{process::Command, signal};
 
 #[derive(Clone, Debug, PartialEq)]
@@ -58,9 +65,15 @@ impl CliCommand {
 
         println!("\n{}", format!("\n--- Executing {:?} ---", cmd).cyan());
 
-        let status = cmd.status()?;
+        let interrupted = Arc::new(AtomicBool::new(false));
+        let sig_id = flag::register(SIGINT, interrupted.clone())?;
+        let status = cmd.status();
+        low_level::unregister(sig_id);
+        let status = status?;
 
-        let was_interrupted = status.signal() == Some(SIGINT) || status.code() == Some(130);
+        let was_interrupted = interrupted.load(Ordering::Relaxed)
+            || status.signal() == Some(SIGINT)
+            || status.code() == Some(130);
 
         if !was_interrupted {
             println!(
