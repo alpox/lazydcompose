@@ -65,12 +65,11 @@ pub fn pending_action(
     Effect::Batch(effects)
 }
 
-pub fn docker_compose_action<F, R>(project: Project, op: PendingOperation, f: F) -> Effect<Message>
-where
-    F: FnOnce(Project) -> R + Send + 'static,
-    R: IntoIterator<Item = String> + Send,
-{
-    let args: Vec<_> = f(project.clone()).into_iter().collect();
+pub fn docker_compose_action(
+    project: &Project,
+    op: PendingOperation,
+    args: Vec<String>,
+) -> Effect<Message> {
     let command = CliCommand::docker(args).cwd(project.folder());
     let resource_ids = project
         .containers
@@ -278,9 +277,11 @@ impl Handler for DockerComposeStop {
                 "Are you sure that you want to stop the project '{}'?",
                 project.name
             ),
-            docker_compose_action(project, PendingOperation::Stopping, |_| {
-                args(["compose", "stop"])
-            }),
+            docker_compose_action(
+                &project,
+                PendingOperation::Stopping,
+                args(["compose", "stop"]),
+            ),
         ));
 
         Effect::None
@@ -293,9 +294,11 @@ pub struct DockerComposeStart(pub Project);
 impl Handler for DockerComposeStart {
     fn handle(self, _ctx: &mut Ctx) -> Effect<Message> {
         let project = self.0;
-        docker_compose_action(project, PendingOperation::Starting, |_| {
-            args(["compose", "start"])
-        })
+        docker_compose_action(
+            &project,
+            PendingOperation::Starting,
+            args(["compose", "start"]),
+        )
     }
 }
 
@@ -306,9 +309,11 @@ impl Handler for DockerComposeUp {
     fn handle(self, _ctx: &mut Ctx) -> Effect<Message> {
         let project = self.0;
 
-        docker_compose_action(project, PendingOperation::Starting, |_| {
-            args(["compose", "up", "-d"])
-        })
+        docker_compose_action(
+            &project,
+            PendingOperation::Starting,
+            args(["compose", "up", "-d"]),
+        )
     }
 }
 
@@ -325,9 +330,11 @@ impl Handler for DockerComposeDown {
                 "Are you sure that you want to down the project '{}'?",
                 project.name
             ),
-            docker_compose_action(project, PendingOperation::Stopping, |_| {
-                args(["compose", "down"])
-            }),
+            docker_compose_action(
+                &project,
+                PendingOperation::Stopping,
+                args(["compose", "down"]),
+            ),
         ));
 
         Effect::None
@@ -341,9 +348,11 @@ impl Handler for DockerComposeRestart {
     fn handle(self, _ctx: &mut Ctx) -> Effect<Message> {
         let project = self.0;
 
-        docker_compose_action(project, PendingOperation::Restarting, |_| {
-            args(["compose", "restart"])
-        })
+        docker_compose_action(
+            &project,
+            PendingOperation::Restarting,
+            args(["compose", "restart"]),
+        )
     }
 }
 

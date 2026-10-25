@@ -8,20 +8,14 @@ use crate::{
     util::args,
 };
 
-fn docker_action<F, R>(
-    project: Project,
-    container: Container,
+fn docker_action(
+    project: &Project,
+    container: &Container,
     op: PendingOperation,
-    f: F,
-) -> Effect<Message>
-where
-    F: FnOnce(Project, Container) -> R + Send + 'static,
-    R: IntoIterator<Item = String> + Send,
-{
+    args: Vec<String>,
+) -> Effect<Message> {
     let resource_id = ResourceId::Container(container.id.clone());
-    let folder = project.folder();
-    let args: Vec<_> = f(project, container).into_iter().collect();
-    let command = CliCommand::docker(args).cwd(folder);
+    let command = CliCommand::docker(args).cwd(project.folder());
 
     pending_action(command, vec![resource_id], op)
 }
@@ -55,10 +49,10 @@ pub struct DockerContainerStart {
 impl Handler for DockerContainerStart {
     fn handle(self, _ctx: &mut Ctx) -> Effect<Message> {
         docker_action(
-            self.project,
-            self.container,
+            &self.project,
+            &self.container,
             PendingOperation::Starting,
-            |_, container| args(["container", "start", container.names.as_str()]),
+            args(["container", "start", self.container.names.as_str()]),
         )
     }
 }
@@ -78,10 +72,10 @@ impl Handler for DockerContainerStop {
                 self.container.names
             ),
             docker_action(
-                self.project,
-                self.container,
+                &self.project,
+                &self.container,
                 PendingOperation::Stopping,
-                |_, container| args(["container", "stop", container.names.as_str()]),
+                args(["container", "stop", self.container.names.as_str()]),
             ),
         ));
 
@@ -98,10 +92,10 @@ pub struct DockerContainerRestart {
 impl Handler for DockerContainerRestart {
     fn handle(self, _ctx: &mut Ctx) -> Effect<Message> {
         docker_action(
-            self.project,
-            self.container,
+            &self.project,
+            &self.container,
             PendingOperation::Restarting,
-            |_, container| args(["container", "restart", container.names.as_str()]),
+            args(["container", "restart", self.container.names.as_str()]),
         )
     }
 }
