@@ -1,5 +1,3 @@
-use std::time::Duration;
-
 use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout, Rect},
@@ -7,51 +5,17 @@ use ratatui::{
 };
 
 use crate::{
-    events::{
-        general::ClearNotes,
-        project::{RefreshProjectInfo, RefreshProjects},
-    },
     model::{Model, Overlay, ViewId},
     panels::{
         project,
         projects::{self},
     },
-    subs::Subscription,
-    system::Message,
     ui::{
         bindings::Bindings,
         notes::Notes,
         prompt::{self},
     },
 };
-
-pub fn subscriptions(model: &Model) -> Subscription<Message> {
-    let mut subscriptions = vec![Subscription::Interval(
-        Duration::from_secs(1),
-        RefreshProjects.into(),
-    )];
-
-    if model.active_view == ViewId::Info
-        && let Some(project) = model.selected_project()
-    {
-        subscriptions.push(Subscription::Interval(
-            Duration::from_secs(1),
-            RefreshProjectInfo {
-                project_name: project.name,
-            }
-            .into(),
-        ))
-    }
-
-    if !model.notes.is_empty() {
-        subscriptions.push(Subscription::Interval(
-            Duration::from_secs(1),
-            ClearNotes.into(),
-        ))
-    }
-
-    Subscription::Batch(subscriptions)
-}
 
 struct AppLayout {
     pub main: Rect,

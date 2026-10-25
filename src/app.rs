@@ -9,7 +9,7 @@ use std::{
 };
 
 use crate::{
-    app_mode::{AppMode, AppModeManager}, effect::Task, event::EventHandler, events::{bindings::PressKey, general::Resize}, model::{Model, RunningState}, sub_manager::SubscriptionManager, system::{Ctx, Message}, tea::{self},
+    app_mode::{AppMode, AppModeManager}, effect::Task, event::EventHandler, events::{bindings::PressKey, general::Resize, subscriptions}, model::{Model, RunningState}, subs::SubscriptionManager, system::{Ctx, Message}, view,
 };
 use crossterm::{
     cursor::Show,
@@ -58,7 +58,7 @@ impl App {
         self.process_subscriptions();
         self.process_keyboard_events();
 
-        let _ = terminal.draw(|frame| tea::view(&mut self.model, frame));
+        let _ = terminal.draw(|frame| view::view(&mut self.model, frame));
 
         while self.model.running_state != RunningState::Done {
             if self.sigint_flag.swap(false, Ordering::Relaxed) {
@@ -70,7 +70,7 @@ impl App {
                 terminal.clear()?;
             }
 
-            let _ = terminal.draw(|frame| tea::view(&mut self.model, frame));
+            let _ = terminal.draw(|frame| view::view(&mut self.model, frame));
         }
 
         Ok(())
@@ -92,7 +92,7 @@ impl App {
     }
 
     fn update_subscriptions(&mut self) {
-        let sub = tea::subscriptions(&self.model);
+        let sub = subscriptions(&self.model);
 
         self.sub.update(sub);
     }

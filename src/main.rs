@@ -24,12 +24,11 @@ pub mod log;
 pub mod model;
 pub mod panels;
 pub mod settings;
-pub mod sub_manager;
 pub mod subs;
 pub mod system;
-pub mod tea;
 pub mod ui;
 pub mod util;
+pub mod view;
 
 fn read_settings() -> color_eyre::Result<Settings> {
     let mut dir = config_local_dir().ok_or_eyre("No configuration directory found")?;
