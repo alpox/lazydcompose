@@ -301,7 +301,14 @@ impl Default for KeyBindings {
                     keys: vec![KeyCode::Char('i').into()],
                     description: "Show info",
                     action: KeyAction::Info,
-                    event: Some(|model| Some(ShowInfo(model.selected_project()?).into())),
+                    event: Some(|model| {
+                        Some(
+                            ShowInfo {
+                                project_name: model.selected_project()?.name,
+                            }
+                            .into(),
+                        )
+                    }),
                     condition: Condition::Global,
                 },
                 Binding {

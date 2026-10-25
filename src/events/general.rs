@@ -15,13 +15,7 @@ impl Batch {
 
 impl Handler for Batch {
     fn handle(self, _ctx: &mut Ctx) -> Effect<Message> {
-        let effects: Vec<Effect<_>> = self
-            .0
-            .iter()
-            .map(|event| Effect::Dispatch(event.clone()))
-            .collect();
-
-        Effect::Batch(effects)
+        Effect::Batch(self.0.into_iter().map(Effect::Dispatch).collect())
     }
 }
 

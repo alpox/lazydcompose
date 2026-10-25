@@ -195,18 +195,18 @@ impl Handler for RefreshProjectInfo {
 }
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct ShowInfo(pub Project);
+pub struct ShowInfo {
+    pub project_name: String,
+}
 
 impl Handler for ShowInfo {
     fn handle(self, ctx: &mut Ctx) -> Effect<Message> {
         ctx.db.active_view = ViewId::Info;
         ctx.db.info_scroll = 0;
 
-        let project = self.0;
-
         Effect::Dispatch(
             RefreshProjectInfo {
-                project_name: project.name,
+                project_name: self.project_name,
             }
             .into(),
         )
