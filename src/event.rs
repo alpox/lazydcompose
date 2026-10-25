@@ -5,7 +5,10 @@ use crossterm::event::KeyEvent;
 use tokio::sync::mpsc;
 
 use crate::{
-    cli::Project, inspect::ContainerInspect, model::{PendingOperation, ResourceId}, util::ResultExt
+    cli::Project,
+    inspect::ContainerInspect,
+    model::{PendingOperation, ResourceId},
+    util::ResultExt,
 };
 
 /// Application events.

@@ -1,6 +1,6 @@
-pub mod table;
+pub mod action_list;
+pub mod bindings;
 pub mod colors;
 pub mod notes;
-pub mod bindings;
 pub mod prompt;
-pub mod action_list;
+pub mod table;
