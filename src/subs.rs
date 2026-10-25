@@ -1,4 +1,4 @@
-use std::{pin::Pin, time::Duration};
+use std::{pin::Pin, sync::Arc, time::Duration};
 
 use futures::{
     Stream, StreamExt,
@@ -8,8 +8,6 @@ use tokio_stream::{
     StreamMap,
     wrappers::{IntervalStream, ReceiverStream},
 };
-
-use std::sync::Arc;
 
 use tokio::sync::{
     Mutex,
