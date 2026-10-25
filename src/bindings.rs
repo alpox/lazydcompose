@@ -246,36 +246,28 @@ impl Default for KeyBindings {
                     description: "Select previous binding",
                     action: KeyAction::MoveUp,
                     event: Some(|_| Some(SelectPreviousBinding.into())),
-                    condition: Condition::All(vec![Condition::OverlayContext(
-                        OverlayContextId::BindingsPopup,
-                    )]),
+                    condition: Condition::OverlayContext(OverlayContextId::BindingsPopup),
                 },
                 Binding {
                     keys: vec![KeyCode::Char('j').into(), KeyCode::Down.into()],
                     description: "Select next binding",
                     action: KeyAction::MoveDown,
                     event: Some(|_| Some(SelectNextBinding.into())),
-                    condition: Condition::All(vec![Condition::OverlayContext(
-                        OverlayContextId::BindingsPopup,
-                    )]),
+                    condition: Condition::OverlayContext(OverlayContextId::BindingsPopup),
                 },
                 Binding {
                     keys: vec![KeyCode::Enter.into()],
                     description: "Select binding",
                     action: KeyAction::Select,
                     event: Some(|_| Some(SelectBinding.into())),
-                    condition: Condition::All(vec![Condition::OverlayContext(
-                        OverlayContextId::BindingsPopup,
-                    )]),
+                    condition: Condition::OverlayContext(OverlayContextId::BindingsPopup),
                 },
                 Binding {
                     keys: vec![KeyCode::Char('q').into(), KeyCode::Esc.into()],
                     description: "Close bindings popup",
                     action: KeyAction::Quit,
                     event: Some(|_| Some(CloseBindings.into())),
-                    condition: Condition::All(vec![Condition::OverlayContext(
-                        OverlayContextId::BindingsPopup,
-                    )]),
+                    condition: Condition::OverlayContext(OverlayContextId::BindingsPopup),
                 },
                 // Prompt panel
                 Binding {
@@ -283,18 +275,14 @@ impl Default for KeyBindings {
                     description: "Select binding",
                     action: KeyAction::Select,
                     event: Some(|_| Some(ConfirmPrompt.into())),
-                    condition: Condition::All(vec![Condition::OverlayContext(
-                        OverlayContextId::Prompt,
-                    )]),
+                    condition: Condition::OverlayContext(OverlayContextId::Prompt),
                 },
                 Binding {
                     keys: vec![KeyCode::Char('q').into(), KeyCode::Esc.into()],
                     description: "Close bindings popup",
                     action: KeyAction::Quit,
                     event: Some(|_| Some(ClosePrompt.into())),
-                    condition: Condition::All(vec![Condition::OverlayContext(
-                        OverlayContextId::Prompt,
-                    )]),
+                    condition: Condition::OverlayContext(OverlayContextId::Prompt),
                 },
                 // Global
                 Binding {
@@ -314,58 +302,49 @@ impl Default for KeyBindings {
                     description: "Show info",
                     action: KeyAction::Info,
                     event: Some(|model| Some(ShowInfo(model.selected_project()?).into())),
-                    condition: Condition::Any(vec![
-                        Condition::Panel(ContextId::Projects),
-                        Condition::Panel(ContextId::Containers),
-                    ]),
+                    condition: Condition::Global,
                 },
                 Binding {
                     keys: vec![KeyCode::Esc.into()],
                     description: "Quit info view",
                     action: KeyAction::QuitInfo,
                     event: Some(|_| Some(QuitInfo.into())),
-                    condition: Condition::All(vec![
-                        Condition::View(ViewId::Info),
-                        Condition::Any(vec![
-                            Condition::Panel(ContextId::Projects),
-                            Condition::Panel(ContextId::Containers),
-                        ]),
-                    ]),
+                    condition: Condition::View(ViewId::Info),
                 },
                 Binding {
                     keys: vec![KeyCode::PageDown.into()],
                     description: "Scroll down",
                     action: KeyAction::ScrollDown,
                     event: Some(|_| Some(ScrollDownInfo.into())),
-                    condition: Condition::All(vec![Condition::View(ViewId::Info)]),
+                    condition: Condition::View(ViewId::Info),
                 },
                 Binding {
                     keys: vec![KeyCode::PageUp.into()],
                     description: "Scroll up",
                     action: KeyAction::ScrollUp,
                     event: Some(|_| Some(ScrollUpInfo.into())),
-                    condition: Condition::All(vec![Condition::View(ViewId::Info)]),
+                    condition: Condition::View(ViewId::Info),
                 },
                 Binding {
                     keys: vec![KeyCode::Char('k').into(), KeyCode::Up.into()],
                     description: "Move selection up",
                     action: KeyAction::MoveUp,
                     event: Some(|_| Some(SelectPrevProject.into())),
-                    condition: Condition::All(vec![Condition::Panel(ContextId::Projects)]),
+                    condition: Condition::Panel(ContextId::Projects),
                 },
                 Binding {
                     keys: vec![KeyCode::Char('j').into(), KeyCode::Down.into()],
                     description: "Move selection down",
                     action: KeyAction::MoveDown,
                     event: Some(|_| Some(SelectNextProject.into())),
-                    condition: Condition::All(vec![Condition::Panel(ContextId::Projects)]),
+                    condition: Condition::Panel(ContextId::Projects),
                 },
                 Binding {
                     keys: vec![KeyCode::Enter.into()],
                     description: "Select",
                     action: KeyAction::Select,
                     event: Some(|model| Some(SelectProject(model.selected_project()?).into())),
-                    condition: Condition::All(vec![Condition::Panel(ContextId::Projects)]),
+                    condition: Condition::Panel(ContextId::Projects),
                 },
                 // Projects panel - compose actions
                 Binding {
@@ -426,21 +405,21 @@ impl Default for KeyBindings {
                     description: "Move selection up",
                     action: KeyAction::MoveUp,
                     event: Some(|_| Some(SelectPrevContainer.into())),
-                    condition: Condition::All(vec![Condition::Panel(ContextId::Containers)]),
+                    condition: Condition::Panel(ContextId::Containers),
                 },
                 Binding {
                     keys: vec![KeyCode::Char('j').into(), KeyCode::Down.into()],
                     description: "Move selection down",
                     action: KeyAction::MoveDown,
                     event: Some(|_| Some(SelectNextContainer.into())),
-                    condition: Condition::All(vec![Condition::Panel(ContextId::Containers)]),
+                    condition: Condition::Panel(ContextId::Containers),
                 },
                 Binding {
                     keys: vec![KeyCode::Esc.into()],
                     description: "Deselect",
                     action: KeyAction::Deselect,
                     event: Some(|_| Some(DeselectProject.into())),
-                    condition: Condition::All(vec![Condition::Panel(ContextId::Containers)]),
+                    condition: Condition::Panel(ContextId::Containers),
                 },
                 // Containers panel - container actions
                 Binding {
@@ -456,7 +435,7 @@ impl Default for KeyBindings {
                             .into(),
                         )
                     }),
-                    condition: Condition::All(vec![Condition::Panel(ContextId::Containers)]),
+                    condition: Condition::Panel(ContextId::Containers),
                 },
                 Binding {
                     keys: vec![KeyCode::Char('S').into()],
@@ -471,7 +450,7 @@ impl Default for KeyBindings {
                             .into(),
                         )
                     }),
-                    condition: Condition::All(vec![Condition::Panel(ContextId::Containers)]),
+                    condition: Condition::Panel(ContextId::Containers),
                 },
                 Binding {
                     keys: vec![KeyCode::Char('r').into()],
@@ -486,7 +465,7 @@ impl Default for KeyBindings {
                             .into(),
                         )
                     }),
-                    condition: Condition::All(vec![Condition::Panel(ContextId::Containers)]),
+                    condition: Condition::Panel(ContextId::Containers),
                 },
                 Binding {
                     keys: vec![KeyCode::Char('m').into()],
@@ -501,7 +480,7 @@ impl Default for KeyBindings {
                             .into(),
                         )
                     }),
-                    condition: Condition::All(vec![Condition::Panel(ContextId::Containers)]),
+                    condition: Condition::Panel(ContextId::Containers),
                 },
                 Binding {
                     keys: vec![KeyCode::Char('E').into()],
@@ -516,7 +495,7 @@ impl Default for KeyBindings {
                             .into(),
                         )
                     }),
-                    condition: Condition::All(vec![Condition::Panel(ContextId::Containers)]),
+                    condition: Condition::Panel(ContextId::Containers),
                 },
             ],
         }
