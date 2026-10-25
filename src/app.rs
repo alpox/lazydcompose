@@ -9,7 +9,14 @@ use std::{
 };
 
 use crate::{
-    app_mode::{AppMode, AppModeManager}, effect::Task, event::EventHandler, events::{bindings::PressKey, general::Resize, subscriptions}, model::{Model, RunningState}, subs::SubscriptionManager, system::{Ctx, Message}, view,
+    app_mode::{AppMode, AppModeManager},
+    effect::Task,
+    event::EventHandler,
+    events::{bindings::PressKey, general::Resize, subscriptions},
+    model::{Model, RunningState},
+    subs::SubscriptionManager,
+    system::{Ctx, Message},
+    view,
 };
 use crossterm::{
     cursor::Show,

@@ -100,7 +100,8 @@ pub struct InitPendingAction {
 
 impl Handler for InitPendingAction {
     fn handle(self, ctx: &mut Ctx) -> Effect<Message> {
-        ctx.db.init_pending_action(self.resource_id, self.pending_op);
+        ctx.db
+            .init_pending_action(self.resource_id, self.pending_op);
         Effect::None
     }
 }

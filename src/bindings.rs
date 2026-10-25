@@ -6,15 +6,26 @@ use crossterm::event::{KeyCode, KeyEvent, KeyEventKind, KeyEventState, KeyModifi
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    data::compose::ProjectKind, events::{
+    data::compose::ProjectKind,
+    events::{
         bindings::{
             CloseBindings, SelectBinding, SelectNextBinding, SelectPreviousBinding, ShowBindings,
-        }, container::{DockerContainerConsole, DockerContainerFollowLogs, DockerContainerRestart, DockerContainerStart, DockerContainerStop, SelectNextContainer, SelectPrevContainer}, general::QuitEvent, project::{
+        },
+        container::{
+            DockerContainerConsole, DockerContainerFollowLogs, DockerContainerRestart,
+            DockerContainerStart, DockerContainerStop, SelectNextContainer, SelectPrevContainer,
+        },
+        general::QuitEvent,
+        project::{
             DeselectProject, DockerComposeDown, DockerComposeRestart, DockerComposeStart,
             DockerComposeStop, DockerComposeUp, QuitInfo, ScrollDownInfo, ScrollUpInfo,
             SelectNextProject, SelectPrevProject, SelectProject, ShowInfo,
-        }, prompt::{ClosePrompt, ConfirmPrompt},
-    }, model::{ContextId, Model, OverlayContextId, ViewId}, settings::Settings, system::Message,
+        },
+        prompt::{ClosePrompt, ConfirmPrompt},
+    },
+    model::{ContextId, Model, OverlayContextId, ViewId},
+    settings::Settings,
+    system::Message,
 };
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
@@ -436,50 +447,75 @@ impl Default for KeyBindings {
                     keys: vec![KeyCode::Char('s').into()],
                     description: "Docker container start",
                     action: KeyAction::DockerContainerStart,
-                    event: Some(|model| Some(DockerContainerStart {
-                        project: model.selected_project()?,
-                        container: model.selected_container()?
-                    }.into())),
+                    event: Some(|model| {
+                        Some(
+                            DockerContainerStart {
+                                project: model.selected_project()?,
+                                container: model.selected_container()?,
+                            }
+                            .into(),
+                        )
+                    }),
                     condition: Condition::All(vec![Condition::Panel(ContextId::Containers)]),
                 },
                 Binding {
                     keys: vec![KeyCode::Char('S').into()],
                     description: "Docker container stop",
                     action: KeyAction::DockerContainerStop,
-                    event: Some(|model| Some(DockerContainerStop {
-                        project: model.selected_project()?,
-                        container: model.selected_container()?
-                    }.into())),
+                    event: Some(|model| {
+                        Some(
+                            DockerContainerStop {
+                                project: model.selected_project()?,
+                                container: model.selected_container()?,
+                            }
+                            .into(),
+                        )
+                    }),
                     condition: Condition::All(vec![Condition::Panel(ContextId::Containers)]),
                 },
                 Binding {
                     keys: vec![KeyCode::Char('r').into()],
                     description: "Docker container restart",
                     action: KeyAction::DockerContainerRestart,
-                    event: Some(|model| Some(DockerContainerRestart {
-                        project: model.selected_project()?,
-                        container: model.selected_container()?
-                    }.into())),
+                    event: Some(|model| {
+                        Some(
+                            DockerContainerRestart {
+                                project: model.selected_project()?,
+                                container: model.selected_container()?,
+                            }
+                            .into(),
+                        )
+                    }),
                     condition: Condition::All(vec![Condition::Panel(ContextId::Containers)]),
                 },
                 Binding {
                     keys: vec![KeyCode::Char('m').into()],
                     description: "Docker follow logs",
                     action: KeyAction::DockerFollowLogs,
-                    event: Some(|model| Some(DockerContainerFollowLogs {
-                        project: model.selected_project()?,
-                        container: model.selected_container()?
-                    }.into())),
+                    event: Some(|model| {
+                        Some(
+                            DockerContainerFollowLogs {
+                                project: model.selected_project()?,
+                                container: model.selected_container()?,
+                            }
+                            .into(),
+                        )
+                    }),
                     condition: Condition::All(vec![Condition::Panel(ContextId::Containers)]),
                 },
                 Binding {
                     keys: vec![KeyCode::Char('E').into()],
                     description: "Docker console",
                     action: KeyAction::DockerConsole,
-                    event: Some(|model| Some(DockerContainerConsole {
-                        project: model.selected_project()?,
-                        container: model.selected_container()?
-                    }.into())),
+                    event: Some(|model| {
+                        Some(
+                            DockerContainerConsole {
+                                project: model.selected_project()?,
+                                container: model.selected_container()?,
+                            }
+                            .into(),
+                        )
+                    }),
                     condition: Condition::All(vec![Condition::Panel(ContextId::Containers)]),
                 },
             ],

@@ -1,5 +1,6 @@
 use crate::{
-    effect::Effect, system::{Ctx, Handler, Message},
+    effect::Effect,
+    system::{Ctx, Handler, Message},
 };
 
 #[derive(Clone, Debug, PartialEq)]

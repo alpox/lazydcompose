@@ -9,7 +9,11 @@ use ratatui::{
 use std::collections::BTreeMap;
 
 use crate::{
-    data::{compose::{Container, Project, State}, inspect::{HealthStatus, MountKind}}, model::Model,
+    data::{
+        compose::{Container, Project, State},
+        inspect::{HealthStatus, MountKind},
+    },
+    model::Model,
 };
 
 struct Section {

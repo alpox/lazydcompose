@@ -71,8 +71,8 @@ impl CliCommand {
         low_level::unregister(sig_id);
         let status = status?;
 
-        let was_interrupted = interrupted.load(Ordering::Relaxed)
-            || status.signal() == Some(SIGINT);
+        let was_interrupted =
+            interrupted.load(Ordering::Relaxed) || status.signal() == Some(SIGINT);
 
         if !was_interrupted {
             println!(
@@ -90,4 +90,3 @@ impl CliCommand {
         Ok(status)
     }
 }
-

@@ -9,7 +9,10 @@ use ratatui::{
     },
 };
 
-use crate::{bindings::bindings, model::{Model, Overlay}};
+use crate::{
+    bindings::bindings,
+    model::{Model, Overlay},
+};
 
 pub struct Bindings<'a> {
     model: &'a Model,
