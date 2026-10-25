@@ -7,7 +7,8 @@ use tokio::time::Instant;
 
 use crate::data::compose::{Container, Project, State};
 use crate::data::inspect::ContainerInspect;
-use crate::{effect::Effect, event::Message, util::wrap_around_optional};
+use crate::system::Message;
+use crate::{effect::Effect, util::wrap_around_optional};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Default, Hash)]
 pub enum ContextId {
@@ -246,21 +247,18 @@ impl Model {
         self.active_project_index = corrected_project_index;
     }
 
-    pub fn select_project(&mut self, project_index: Option<usize>) {
-        if project_index.is_none() {
+    pub fn select_project(&mut self, project: Project) {
+        let Some(project_index) = self.projects.iter().position(|p| p.name == project.name) else {
             self.active_context = ContextId::Projects;
             self.active_container_index = None;
             self.active_project_index = None;
 
             return;
-        }
+        };
 
         self.active_context = ContextId::Containers;
-        self.active_container_index = self
-            .selected_project()
-            .filter(|project| !project.containers.is_empty())
-            .and(project_index)
-            .map(|idx| self.project_container_offset(idx));
+        self.active_container_index = (!self.projects[project_index].containers.is_empty())
+            .then(|| self.project_container_offset(project_index));
 
         self.correct_project_index();
     }

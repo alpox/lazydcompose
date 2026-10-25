@@ -13,9 +13,8 @@ use crate::{
     effect::Effect,
     event::Message,
     events::project::{RefreshProjectInfo, RefreshProjects},
-    model::{ContextId, Model, Note, Overlay, ViewId},
+    model::{Model, Note, Overlay, ViewId},
     panels::{
-        containers::{self},
         project,
         projects::{self},
     },
@@ -45,10 +44,6 @@ pub fn update(model: &mut Model, msg: Message) -> Effect<Message> {
     match msg {
         Message::Tick => Effect::None,
         Message::KeyPress(key) => handle_key(model, key),
-        Message::InitPending(resource_id, op) => {
-            model.init_pending_action(resource_id, op);
-            Effect::None
-        }
         Message::Projects(Ok(projects)) => {
             model.projects = projects;
             if !model.projects.is_empty() && model.active_project_index.is_none() {
@@ -94,10 +89,7 @@ fn handle_key(model: &mut Model, key: KeyEvent) -> Effect<Message> {
         return handle_event(model, resolved_event);
     }
 
-    match model.active_context {
-        ContextId::Projects => project::handle_key(model, key),
-        ContextId::Containers => containers::handle_key(model, key),
-    }
+    return Effect::None;
 }
 
 pub fn subscriptions(model: &Model) -> Subscription<Message> {

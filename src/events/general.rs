@@ -9,6 +9,27 @@ use crate::{
 };
 
 #[derive(Clone, Debug, PartialEq)]
+pub struct Batch(pub Vec<Message>);
+
+impl Batch {
+    pub fn new(messages: impl IntoIterator<Item = Message>) -> Batch {
+        Batch(messages.into_iter().collect())
+    }
+}
+
+impl Handler for Batch {
+    fn handle(self, _ctx: &mut Ctx) -> Effect<Message> {
+        let effects: Vec<Effect<_>> = self
+            .0
+            .iter()
+            .map(|event| Effect::Dispatch(event.clone()))
+            .collect();
+
+        Effect::Batch(effects)
+    }
+}
+
+#[derive(Clone, Debug, PartialEq)]
 pub struct QuitEvent;
 
 impl Handler for QuitEvent {

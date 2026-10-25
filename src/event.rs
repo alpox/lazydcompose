@@ -6,7 +6,6 @@ use tokio::sync::mpsc;
 
 use crate::{
     data::compose::Project,
-    model::{PendingOperation, ResourceId},
     system,
     util::ResultExt,
 };
@@ -18,7 +17,6 @@ pub enum Message {
     ClearNotes,
     KeyPress(KeyEvent),
     Resize,
-    InitPending(ResourceId, PendingOperation),
     Projects(Result<Vec<Project>, String>),
     ActionResult(Result<String, String>),
     Event(system::Message),

@@ -86,7 +86,7 @@ impl Handler for SelectBinding {
         };
 
         if let Some(event) = &binding.event {
-            return Effect::Dispatch(event.clone());
+            return event(ctx.db).map_or(Effect::None, Effect::Dispatch);
         }
 
         match binding.keys.first() {
