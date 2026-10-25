@@ -1,6 +1,5 @@
 use std::cmp::min;
 
-use crossterm::event::{KeyCode, KeyEvent};
 use ratatui::{
     buffer::Buffer,
     layout::{Constraint, Direction, Layout, Rect},
@@ -10,7 +9,10 @@ use ratatui::{
     },
 };
 
-use crate::{bindings::bindings, effect::Effect, event::Message, model::Model};
+use crate::{
+    bindings::bindings,
+    model::{Model, Overlay},
+};
 
 pub struct Bindings<'a> {
     model: &'a Model,
@@ -75,10 +77,10 @@ impl<'a> Widget for Bindings<'a> {
         .highlight_symbol(">");
 
         let mut panel_table_state = TableState::new();
-        if let Some(idx) = self.model.selected_action_index
-            && idx < panel_bindings_len
+        if let Some(Overlay::Bindings { selected }) = &self.model.overlay
+            && *selected < panel_bindings_len
         {
-            panel_table_state.select(self.model.selected_action_index);
+            panel_table_state.select(Some(*selected));
         }
 
         let rows: Vec<_> = global_bindings
@@ -100,10 +102,10 @@ impl<'a> Widget for Bindings<'a> {
         .highlight_symbol(">");
 
         let mut global_table_state = TableState::new();
-        if let Some(idx) = self.model.selected_action_index
-            && idx >= panel_bindings_len
+        if let Some(Overlay::Bindings { selected }) = &self.model.overlay
+            && *selected >= panel_bindings_len
         {
-            global_table_state.select(Some(idx.saturating_sub(panel_bindings_len)));
+            global_table_state.select(Some(selected.saturating_sub(panel_bindings_len)));
         }
 
         let hints = Paragraph::new("q: Quit, Esc: Quit").centered();
@@ -129,51 +131,5 @@ impl<'a> Widget for Bindings<'a> {
         StatefulWidget::render(panel_table, chunks[0], buf, &mut panel_table_state);
         StatefulWidget::render(global_table, chunks[1], buf, &mut global_table_state);
         hints.render(chunks[2], buf);
-    }
-}
-
-pub fn handle_key(model: &mut Model, key: KeyEvent) -> Effect<Message> {
-    let bindings = [bindings().bindings_for(model), bindings().global()].concat();
-    let last_index = bindings.iter().len() - 1;
-
-    match key.code {
-        KeyCode::Char('j') | KeyCode::Down => {
-            model.selected_action_index = match model.selected_action_index {
-                Some(idx) if idx == last_index => Some(0),
-                Some(idx) => Some(idx + 1),
-                None => Some(0),
-            };
-
-            Effect::None
-        }
-        KeyCode::Char('k') | KeyCode::Up => {
-            model.selected_action_index = match model.selected_action_index {
-                Some(0) => Some(last_index),
-                Some(idx) => Some(idx - 1),
-                None => Some(last_index),
-            };
-
-            Effect::None
-        }
-        KeyCode::Enter => {
-            if let Some(idx) = model.selected_action_index {
-                model.selected_action_index = None;
-                model.active_overlay_context = None;
-                let binding = bindings.get(idx);
-                if let Some(key) = binding.and_then(|binding| binding.keys.first()) {
-                    Effect::dispatch(Message::KeyPress(key.into()))
-                } else {
-                    Effect::None
-                }
-            } else {
-                Effect::None
-            }
-        }
-        KeyCode::Esc | KeyCode::Char('q') => {
-            model.active_overlay_context = None;
-            model.selected_action_index = None;
-            Effect::None
-        }
-        _ => Effect::None,
     }
 }

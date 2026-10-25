@@ -3,7 +3,7 @@ use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
 };
 
-use crate::{cli::Project, model::Model, panels::project};
+use crate::{data::compose::Project, model::Model, panels::project};
 
 pub fn view(model: &mut Model, frame: &mut Frame, area: Rect) {
     let min_size = 4_u16;

@@ -1,4 +1,3 @@
-use crossterm::event::KeyEvent;
 use ratatui::{
     Frame,
     layout::{Constraint, Rect},
@@ -8,13 +7,9 @@ use ratatui::{
 };
 
 use crate::{
-    bindings::{KeyAction, bindings},
-    cli::{Container, Project, docker_action_tty, docker_project_action},
-    effect::Effect,
-    event::Message,
-    model::{ContextId, Model, PendingOperation, Prompt, ResourceId, ViewId},
+    data::compose::Container,
+    model::{ContextId, Model, ResourceId},
     ui::colors::Colorize,
-    util::args,
 };
 
 impl From<&Container> for ListItem<'_> {
@@ -23,119 +18,6 @@ impl From<&Container> for ListItem<'_> {
             format!("Container: {}", value.names),
             Color::Cyan,
         ))
-    }
-}
-
-fn docker_action<F, R>(model: &Model, op: PendingOperation, f: F) -> Effect<Message>
-where
-    F: FnOnce(Project, Container) -> R + Send + 'static,
-    R: IntoIterator<Item = String> + Send,
-{
-    match (model.selected_project(), model.selected_container()) {
-        (Some(project), Some(container)) => {
-            let resource_id = ResourceId::Container(container.id.clone());
-            Effect::Batch(vec![
-                Effect::Dispatch(Message::InitPending(resource_id, op)),
-                Effect::perform(async move {
-                    let args: Vec<_> = f(project.clone(), container.clone()).into_iter().collect();
-                    let result = docker_project_action(project, args).await;
-                    Some(Message::from(result))
-                }),
-            ])
-        }
-        _ => Effect::None,
-    }
-}
-
-pub fn handle_key(model: &mut Model, key: KeyEvent) -> Effect<Message> {
-    match bindings().resolve(&key, model) {
-        Some(KeyAction::Info) => {
-            model.active_view = ViewId::Info;
-            model.info_scroll = 0;
-            match model.selected_project() {
-                Some(p) => Effect::Dispatch(Message::RefreshProjectInfo(p.name)),
-                None => Effect::None,
-            }
-        }
-        Some(KeyAction::QuitInfo) => {
-            model.active_view = ViewId::Main;
-            model.info_scroll = 0;
-            Effect::None
-        }
-        Some(KeyAction::ScrollDown) => {
-            model.info_scroll = model.info_scroll.saturating_add(1);
-            Effect::None
-        }
-        Some(KeyAction::ScrollUp) => {
-            model.info_scroll = model.info_scroll.saturating_sub(1);
-            Effect::None
-        }
-        Some(KeyAction::MoveUp) => {
-            model.select_previous_container();
-            Effect::None
-        }
-        Some(KeyAction::MoveDown) => {
-            model.select_next_container();
-            Effect::None
-        }
-        Some(KeyAction::DockerContainerStart) => {
-            docker_action(model, PendingOperation::Starting, |_, container| {
-                args(["container", "start", container.names.as_str()])
-            })
-        }
-        Some(KeyAction::DockerContainerStop) => {
-            if let Some(container) = &model.selected_container() {
-                model.prompt(Prompt::new(
-                    "Confirm",
-                    format!(
-                        "Are you sure that you want to stop the container '{}'?",
-                        container.names
-                    ),
-                    docker_action(model, PendingOperation::Stopping, |_, container| {
-                        args(["container", "stop", container.names.as_str()])
-                    }),
-                ))
-            }
-
-            Effect::None
-        }
-        Some(KeyAction::DockerContainerRestart) => {
-            docker_action(model, PendingOperation::Restarting, |_, container| {
-                args(["container", "restart", container.names.as_str()])
-            })
-        }
-        Some(KeyAction::DockerFollowLogs) => {
-            match (model.selected_project(), model.selected_container()) {
-                (Some(project), Some(container)) => Effect::perform_blocking(async move {
-                    let _ = docker_action_tty(
-                        project,
-                        ["logs", "--follow", "--since=60m", container.id.as_str()],
-                    )
-                    .await;
-                    None
-                }),
-                _ => Effect::None,
-            }
-        }
-        Some(KeyAction::DockerConsole) => {
-            match (model.selected_project(), model.selected_container()) {
-                (Some(project), Some(container)) => Effect::perform_blocking(async move {
-                    let _ = docker_action_tty(
-                        project,
-                        ["exec", "-it", container.id.as_str(), "/bin/sh"],
-                    )
-                    .await;
-                    None
-                }),
-                _ => Effect::None,
-            }
-        }
-        Some(KeyAction::Deselect) => {
-            model.active_context = ContextId::Projects;
-            model.active_container_index = None;
-            Effect::None
-        }
-        _ => Effect::None,
     }
 }
 

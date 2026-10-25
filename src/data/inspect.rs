@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use serde::{Deserialize, Deserializer, Serialize};
 
-use crate::cli::State;
+use crate::data::compose::State;
 
 fn null_as_default<'de, D, T>(d: D) -> Result<T, D::Error>
 where

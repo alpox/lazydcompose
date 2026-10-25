@@ -5,16 +5,18 @@ use std::{
         atomic::{AtomicBool, Ordering},
     },
     thread::sleep,
-    time::Duration,
+    time::{Duration, Instant},
 };
 
 use crate::{
     app_mode::{AppMode, AppModeManager},
     effect::Task,
-    event::{EventHandler, Message},
+    event::EventHandler,
+    events::{bindings::PressKey, general::Resize, subscriptions},
     model::{Model, RunningState},
-    sub_manager::SubscriptionManager,
-    tea::{self},
+    subs::SubscriptionManager,
+    system::{Ctx, Message},
+    view,
 };
 use crossterm::{
     cursor::Show,
@@ -63,7 +65,7 @@ impl App {
         self.process_subscriptions();
         self.process_keyboard_events();
 
-        let _ = terminal.draw(|frame| tea::view(&mut self.model, frame));
+        let _ = terminal.draw(|frame| view::render(&mut self.model, frame));
 
         while self.model.running_state != RunningState::Done {
             if self.sigint_flag.swap(false, Ordering::Relaxed) {
@@ -75,14 +77,17 @@ impl App {
                 terminal.clear()?;
             }
 
-            let _ = terminal.draw(|frame| tea::view(&mut self.model, frame));
+            let _ = terminal.draw(|frame| view::render(&mut self.model, frame));
         }
 
         Ok(())
     }
 
     fn handle_message(&mut self, msg: Message) -> color_eyre::Result<bool> {
-        let effect = tea::update(&mut self.model, msg);
+        let effect = msg.handle(&mut Ctx {
+            db: &mut self.model,
+            now: Instant::now(),
+        });
 
         if let Some(blocking_fut) = effect.process(self.events.sender()) {
             return self.run_blocking(blocking_fut);
@@ -94,7 +99,7 @@ impl App {
     }
 
     fn update_subscriptions(&mut self) {
-        let sub = tea::subscriptions(&self.model);
+        let sub = subscriptions(&self.model);
 
         self.sub.update(sub);
     }
@@ -173,10 +178,10 @@ impl App {
                         Some(Ok(evt)) = async { reader.next().await } => {
                             match evt {
                                 crossterm::event::Event::Key(key) => {
-                                    let _ = sender.send(Message::KeyPress(key));
+                                    let _ = sender.send(PressKey { key }.into());
                                 },
                                 crossterm::event::Event::Resize(_, _) => {
-                                    let _ = sender.send(Message::Resize);
+                                    let _ = sender.send(Resize.into());
                                 }
                                 _ => {}
                             }

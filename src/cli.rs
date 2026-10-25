@@ -1,295 +1,92 @@
 use crossterm::style::Stylize;
 use std::{
-    collections::HashMap, iter, os::unix::process::ExitStatusExt, path::Path, process::ExitStatus,
+    os::unix::process::ExitStatusExt,
+    process::ExitStatus,
+    sync::{
+        Arc,
+        atomic::{AtomicBool, Ordering},
+    },
 };
 
-use itertools::Itertools;
-use serde::{Deserialize, Serialize};
-
 use color_eyre::eyre::{WrapErr, eyre};
-use signal_hook::consts::SIGINT;
+use signal_hook::{consts::SIGINT, flag, low_level};
 use tokio::{process::Command, signal};
 
-use crate::{inspect::ContainerInspect, model::Model};
-
-#[derive(Clone, Serialize, Deserialize, PartialEq, Eq, Debug, Default)]
-pub enum State {
-    #[serde(rename = "created")]
-    Created,
-    #[serde(rename = "running")]
-    Running,
-    #[serde(rename = "paused")]
-    Paused,
-    #[serde(rename = "restarting")]
-    Restarting,
-    #[default]
-    #[serde(rename = "exited")]
-    Exited,
-    #[serde(rename = "removing")]
-    Removing,
-    #[serde(rename = "dead")]
-    Dead,
+#[derive(Clone, Debug, PartialEq)]
+pub struct CliCommand {
+    pub program: &'static str,
+    pub args: Vec<String>,
+    pub cwd: Option<String>,
 }
 
-#[derive(Clone, Serialize, Deserialize, PartialEq, Eq, Debug)]
-pub struct ComposeData {
-    #[serde(rename = "ConfigFiles")]
-    pub config_files: String,
-    #[serde(rename = "Status")]
-    pub status: String,
-}
+impl CliCommand {
+    pub fn docker(args: impl IntoIterator<Item = impl Into<String>>) -> Self {
+        Self {
+            program: "docker",
+            args: args.into_iter().map(Into::into).collect(),
+            cwd: None,
+        }
+    }
 
-#[derive(Clone, Serialize, Deserialize, PartialEq, Eq, Debug)]
-#[serde(untagged)]
-pub enum ProjectKind {
-    Compose(ComposeData),
-    #[serde(skip)]
-    Standalone,
-}
+    pub fn cwd(mut self, cwd: Option<String>) -> Self {
+        self.cwd = cwd;
+        self
+    }
 
-#[derive(Clone, Serialize, Deserialize, PartialEq, Eq, Debug)]
-pub struct ProjectContainersState {
-    pub state: State,
-    pub amount: usize,
-}
+    pub async fn run(&self) -> color_eyre::Result<String> {
+        let mut cmd = Command::new(self.program);
 
-#[derive(Clone, Serialize, Deserialize, PartialEq, Eq, Debug)]
-pub struct Project {
-    #[serde(rename = "Name")]
-    pub name: String,
-    #[serde(flatten)]
-    pub kind: ProjectKind,
-    #[serde(skip)]
-    pub containers: Vec<Container>,
-}
+        cmd.args(self.args.iter().map(String::as_str));
 
-#[derive(Clone, Serialize, Deserialize, PartialEq, Eq, Debug)]
-pub struct ContainerPlatform {
-    pub architecture: String,
-    pub os: String,
-}
+        if let Some(cwd) = &self.cwd {
+            cmd.current_dir(cwd);
+        }
 
-#[derive(Clone, Serialize, Deserialize, PartialEq, Eq, Debug)]
-pub struct Container {
-    #[serde(rename = "Command")]
-    pub command: String,
-    #[serde(rename = "CreatedAt")]
-    pub created_at: String,
-    #[serde(rename = "ID")]
-    pub id: String,
-    #[serde(rename = "Image")]
-    pub image: String,
-    #[serde(rename = "Labels")]
-    pub labels_raw: String,
-    #[serde(skip)]
-    pub labels: HashMap<String, String>,
-    #[serde(rename = "LocalVolumes")]
-    pub local_volumes: String,
-    #[serde(rename = "Mounts")]
-    pub mounts: String,
-    #[serde(rename = "Names")]
-    pub names: String,
-    #[serde(rename = "Networks")]
-    pub networks: String,
-    #[serde(rename = "Platform")]
-    pub platform: Option<ContainerPlatform>,
-    #[serde(rename = "Ports")]
-    pub ports: String,
-    #[serde(rename = "RunningFor")]
-    pub running_for: String,
-    #[serde(rename = "Size")]
-    pub size: String,
-    #[serde(rename = "State")]
-    pub state: State,
-    #[serde(rename = "Status")]
-    pub status: String,
-}
+        let output = cmd.output().await?;
 
-impl Container {
-    pub fn title(&self) -> &str {
-        if let Some(service) = self.labels.get("com.docker.compose.service") {
-            service
+        if !output.status.success() {
+            let err = String::from_utf8_lossy(&output.stderr);
+            Err(eyre!("{}", err))
         } else {
-            &self.names
+            let out = String::from_utf8(output.stdout)
+                .wrap_err_with(|| format!("{} returned invalid utf8", self.program))?;
+            Ok(out)
         }
     }
 
-    pub fn inspect<'a>(&self, model: &'a Model) -> Option<&'a ContainerInspect> {
-        model.inspects.get(&self.id)
-    }
-}
+    pub async fn run_tty(&self) -> color_eyre::Result<ExitStatus> {
+        let mut cmd = std::process::Command::new(self.program);
 
-impl ProjectKind {
-    pub fn as_compose(&self) -> Option<&ComposeData> {
-        match self {
-            ProjectKind::Compose(compose) => Some(compose),
-            ProjectKind::Standalone => None,
-        }
-    }
-}
+        cmd.args(self.args.iter().map(String::as_str));
 
-impl Project {
-    fn folder(&self) -> Option<String> {
-        let config_files = self.kind.as_compose()?.config_files.clone();
-        let file = config_files.split(",").next()?.to_string();
-        Path::new(&file).parent()?.to_str().map(|v| v.to_string())
-    }
-
-    pub fn state(&self) -> State {
-        if self.containers.iter().any(|c| c.state == State::Running) {
-            return State::Running;
+        if let Some(cwd) = &self.cwd {
+            cmd.current_dir(cwd);
         }
 
-        State::Exited
+        println!("\n{}", format!("\n--- Executing {:?} ---", cmd).cyan());
+
+        let interrupted = Arc::new(AtomicBool::new(false));
+        let sig_id = flag::register(SIGINT, interrupted.clone())?;
+        let status = cmd.status();
+        low_level::unregister(sig_id);
+        let status = status?;
+
+        let was_interrupted =
+            interrupted.load(Ordering::Relaxed) || status.signal() == Some(SIGINT);
+
+        if !was_interrupted {
+            println!(
+                "\n{}",
+                format!(
+                    "--- Command exited (code: {:?}) - Press Ctrl+C to return ---",
+                    status.code()
+                )
+                .cyan(),
+            );
+
+            signal::ctrl_c().await?;
+        }
+
+        Ok(status)
     }
-}
-
-pub async fn cli_action(
-    cmd: impl Into<&str>,
-    args: impl IntoIterator<Item = &str>,
-) -> color_eyre::Result<String> {
-    let output = Command::new(cmd.into()).args(args).output().await?;
-
-    if !output.status.success() {
-        let err = String::from_utf8_lossy(&output.stderr);
-        Err(eyre!("{}", err))
-    } else {
-        let out = String::from_utf8(output.stdout)
-            .wrap_err("docker container list returned invalid utf8")?;
-        Ok(out)
-    }
-}
-
-pub async fn docker_get_projects() -> color_eyre::Result<Vec<Project>> {
-    let output = cli_action("docker", ["compose", "ls", "-a", "--format", "json"]).await?;
-
-    let mut projects = serde_json::from_str::<Vec<Project>>(&output)
-        .wrap_err("Could not parse docker compose ls output")?;
-
-    let containers_output =
-        cli_action("docker", ["container", "ls", "-a", "--format", "json"]).await?;
-
-    let parts = format!("[{}]", containers_output.lines().join(","));
-
-    let containers = serde_json::from_str::<Vec<Container>>(&parts)
-        .wrap_err("Could not parse docker container list output")?;
-
-    let mut containers_by_project: HashMap<Option<String>, Vec<Container>> = HashMap::new();
-
-    for mut container in containers {
-        container.labels = container
-            .labels_raw
-            .split(",")
-            .filter(|s| !s.is_empty())
-            .filter_map(|key_value| {
-                let (key, value) = key_value.split_once("=")?;
-                Some((key.to_string(), value.to_string()))
-            })
-            .collect();
-
-        let project_name = container.labels.get("com.docker.compose.project").cloned();
-
-        containers_by_project
-            .entry(project_name)
-            .or_default()
-            .push(container);
-    }
-
-    for project in &mut projects {
-        project.containers = containers_by_project
-            .remove(&Some(project.name.clone()))
-            .unwrap_or_default()
-    }
-
-    if let Some(standalone) = containers_by_project.remove(&None) {
-        projects.push(Project {
-            name: "(standalone)".to_string(),
-            kind: ProjectKind::Standalone,
-            containers: standalone,
-        })
-    }
-
-    Ok(projects)
-}
-
-pub async fn docker_action(
-    args: impl IntoIterator<Item = impl AsRef<str>>,
-) -> color_eyre::Result<String> {
-    let args: Vec<_> = args.into_iter().map(|v| v.as_ref().to_string()).collect();
-
-    let output = Command::new("docker").args(args).output().await?;
-
-    if !output.status.success() {
-        let err = String::from_utf8_lossy(&output.stderr);
-        Err(eyre!("{}", err))
-    } else {
-        let out = String::from_utf8(output.stdout)
-            .wrap_err("docker container list returned invalid utf8")?;
-        Ok(out)
-    }
-}
-
-pub async fn docker_project_action(
-    project: Project,
-    args: impl IntoIterator<Item = impl AsRef<str>>,
-) -> color_eyre::Result<String> {
-    let args: Vec<_> = args.into_iter().map(|v| v.as_ref().to_string()).collect();
-
-    let mut command = Command::new("docker");
-    command.args(args);
-
-    if let Some(folder) = project.folder() {
-        command.current_dir(folder);
-    }
-
-    let output = command.output().await?;
-
-    if !output.status.success() {
-        let err = String::from_utf8_lossy(&output.stderr);
-        Err(eyre!("{}", err))
-    } else {
-        let out = String::from_utf8(output.stdout)
-            .wrap_err("docker container list returned invalid utf8")?;
-        Ok(out)
-    }
-}
-
-pub async fn docker_action_tty(
-    project: Project,
-    args: impl IntoIterator<Item = impl AsRef<str>>,
-) -> color_eyre::Result<ExitStatus> {
-    let args: Vec<_> = args.into_iter().map(|v| v.as_ref().to_string()).collect();
-
-    let cmd = iter::once("docker")
-        .chain(args.iter().map(String::as_str))
-        .collect::<Vec<_>>()
-        .join(" ");
-
-    println!("\n{}", format!("\n--- Executing {:?} ---", cmd).cyan());
-
-    let mut command = std::process::Command::new("docker");
-    command.args(&args);
-
-    if let Some(folder) = project.folder() {
-        command.current_dir(folder);
-    }
-
-    let status = command.status()?;
-
-    let was_interrupted = status.signal() == Some(SIGINT) || status.code() == Some(130);
-
-    if !was_interrupted {
-        println!(
-            "\n{}",
-            format!(
-                "--- Command exited (code: {:?}) - Press Ctrl+C to return ---",
-                status.code()
-            )
-            .cyan(),
-        );
-
-        signal::ctrl_c().await?;
-    }
-
-    Ok(status)
 }

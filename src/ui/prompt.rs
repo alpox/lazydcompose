@@ -1,12 +1,9 @@
-use crossterm::event::{KeyCode, KeyEvent};
 use ratatui::{
     buffer::Buffer,
     layout::{Constraint, Layout, Rect},
     style::Color,
     widgets::{Block, BorderType, Borders, Clear, Paragraph, Widget, Wrap},
 };
-
-use crate::{effect::Effect, event::Message, model::Model};
 
 #[derive(Clone)]
 pub struct Prompt<'a> {
@@ -17,20 +14,6 @@ pub struct Prompt<'a> {
 impl<'a> Prompt<'a> {
     pub fn new(title: &'a str, text: &'a str) -> Self {
         Self { title, text }
-    }
-}
-
-pub fn handle_key(model: &mut Model, key: KeyEvent) -> Effect<Message> {
-    match key.code {
-        KeyCode::Esc | KeyCode::Char('q') => {
-            model.close_prompt();
-            Effect::None
-        }
-        KeyCode::Enter => match model.take_prompt() {
-            Some(prompt) => prompt.then,
-            None => Effect::None,
-        },
-        _ => Effect::None,
     }
 }
 

@@ -5,13 +5,10 @@ use itertools::Itertools;
 use ratatui::style::Style;
 use tokio::time::Instant;
 
-use crate::inspect::ContainerInspect;
-use crate::{
-    cli::{Container, Project, State},
-    effect::Effect,
-    event::Message,
-    util::wrap_around_optional,
-};
+use crate::data::compose::{Container, Project};
+use crate::data::inspect::ContainerInspect;
+use crate::system::Message;
+use crate::{effect::Effect, util::wrap_around_optional};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Default, Hash)]
 pub enum ContextId {
@@ -50,20 +47,6 @@ pub enum PendingOperation {
     Starting,
     Stopping,
     Restarting,
-}
-
-trait OperationComplete {
-    fn is_complete(&self, op: &PendingOperation) -> bool;
-}
-
-impl OperationComplete for Container {
-    fn is_complete(&self, op: &PendingOperation) -> bool {
-        match op {
-            PendingOperation::Starting => self.state == State::Running,
-            PendingOperation::Stopping => self.state == State::Exited,
-            PendingOperation::Restarting => self.state == State::Running,
-        }
-    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -136,18 +119,31 @@ impl Debug for Prompt {
 }
 
 #[derive(Debug)]
+pub enum Overlay {
+    Bindings { selected: usize },
+    Prompt(Prompt),
+}
+
+impl Overlay {
+    pub fn id(&self) -> OverlayContextId {
+        match self {
+            Overlay::Bindings { .. } => OverlayContextId::BindingsPopup,
+            Overlay::Prompt(_) => OverlayContextId::Prompt,
+        }
+    }
+}
+
+#[derive(Debug)]
 pub struct Model {
     // Application data
     pub running_state: RunningState,
     pub projects: Vec<Project>,
-    pub pending_operations: HashMap<ResourceId, PendingOperation>,
+    pub pending_operations: HashMap<ResourceId, (PendingOperation, usize)>,
 
-    // UI state
-    pub prompt: Option<Prompt>,
+    pub overlay: Option<Overlay>,
 
     pub active_context: ContextId,
     pub active_view: ViewId,
-    pub active_overlay_context: Option<OverlayContextId>,
 
     pub active_project_index: Option<usize>,
     pub active_container_index: Option<usize>,
@@ -155,8 +151,6 @@ pub struct Model {
     pub projects_scroll_offset: usize,
 
     pub notes: Vec<Note>,
-
-    pub selected_action_index: Option<usize>,
 
     pub inspects: HashMap<String, ContainerInspect>,
 
@@ -170,11 +164,10 @@ impl Default for Model {
             projects: vec![],
             pending_operations: Default::default(),
 
-            prompt: Default::default(),
-
             active_context: ContextId::default(),
             active_view: ViewId::default(),
-            active_overlay_context: None,
+
+            overlay: None,
 
             active_project_index: None,
             active_container_index: None,
@@ -182,8 +175,6 @@ impl Default for Model {
             projects_scroll_offset: 0,
 
             notes: vec![],
-
-            selected_action_index: Some(0),
 
             inspects: HashMap::default(),
 
@@ -193,26 +184,15 @@ impl Default for Model {
 }
 
 impl Model {
-    pub fn selected_project(&self) -> Option<Project> {
-        self.active_project_index
-            .and_then(|index| self.projects.get(index))
-            .cloned()
+    pub fn selected_project(&self) -> Option<&Project> {
+        self.projects.get(self.active_project_index?)
     }
 
-    pub fn selected_project_containers(&self) -> Option<Vec<Container>> {
-        Some(self.selected_project()?.containers)
-    }
-
-    pub fn selected_container(&self) -> Option<Container> {
-        let containers: Vec<_> = self
-            .projects
+    pub fn selected_container(&self) -> Option<&Container> {
+        self.projects
             .iter()
-            .flat_map(|project| project.containers.clone())
-            .collect();
-
-        self.active_container_index
-            .and_then(|index| containers.get(index))
-            .cloned()
+            .flat_map(|project| &project.containers)
+            .nth(self.active_container_index?)
     }
 
     pub fn num_containers(&self) -> usize {
@@ -242,21 +222,18 @@ impl Model {
         self.active_project_index = corrected_project_index;
     }
 
-    pub fn select_project(&mut self, project_index: Option<usize>) {
-        if project_index.is_none() {
+    pub fn select_project(&mut self, project: Project) {
+        let Some(project_index) = self.projects.iter().position(|p| p.name == project.name) else {
             self.active_context = ContextId::Projects;
             self.active_container_index = None;
             self.active_project_index = None;
 
             return;
-        }
+        };
 
         self.active_context = ContextId::Containers;
-        self.active_container_index = self
-            .selected_project()
-            .filter(|project| !project.containers.is_empty())
-            .and(project_index)
-            .map(|idx| self.project_container_offset(idx));
+        self.active_container_index = (!self.projects[project_index].containers.is_empty())
+            .then(|| self.project_container_offset(project_index));
 
         self.correct_project_index();
     }
@@ -304,38 +281,21 @@ impl Model {
     }
 
     pub fn init_pending_action(&mut self, resource_id: ResourceId, op: PendingOperation) {
-        self.pending_operations.insert(resource_id, op);
+        let count = self
+            .pending_operations
+            .get(&resource_id)
+            .map_or(0, |(_, count)| *count);
+
+        self.pending_operations.insert(resource_id, (op, count + 1));
     }
 
     pub fn stop_pending_action(&mut self, resource_id: &ResourceId) {
-        self.pending_operations.remove(resource_id);
-    }
+        if let Some((_, count)) = self.pending_operations.get_mut(resource_id) {
+            *count -= 1;
 
-    pub fn container_by_id(&self, id: &str) -> Option<Container> {
-        self.projects.iter().find_map(|project| {
-            project
-                .containers
-                .iter()
-                .find(|container| container.id == id)
-                .cloned()
-        })
-    }
-
-    pub fn update_pending_actions(&mut self) {
-        let to_remove: Vec<_> = self
-            .pending_operations
-            .iter()
-            .filter(|(resource_id, op)| match resource_id {
-                ResourceId::Container(id) => self
-                    .container_by_id(id)
-                    .map(|container| container.is_complete(op))
-                    .unwrap_or(false),
-            })
-            .map(|(k, _)| k.clone())
-            .collect();
-
-        for id in to_remove {
-            self.pending_operations.remove(&id);
+            if *count == 0 {
+                self.pending_operations.remove(resource_id);
+            }
         }
     }
 
@@ -352,17 +312,20 @@ impl Model {
     }
 
     pub fn prompt(&mut self, prompt: Prompt) {
-        self.prompt = Some(prompt);
-        self.active_overlay_context = Some(OverlayContextId::Prompt);
+        self.overlay = Some(Overlay::Prompt(prompt));
     }
 
     pub fn take_prompt(&mut self) -> Option<Prompt> {
-        self.active_overlay_context = None;
-        self.prompt.take()
+        match self.overlay.take() {
+            Some(Overlay::Prompt(prompt)) => Some(prompt),
+            other => {
+                self.overlay = other;
+                None
+            }
+        }
     }
 
     pub fn close_prompt(&mut self) {
-        self.prompt = None;
-        self.active_overlay_context = None;
+        self.overlay = None;
     }
 }

@@ -9,8 +9,10 @@ use ratatui::{
 use std::collections::BTreeMap;
 
 use crate::{
-    cli::{Container, Project, State},
-    inspect::{HealthStatus, MountKind},
+    data::{
+        compose::{Container, Project, State},
+        inspect::{HealthStatus, MountKind},
+    },
     model::Model,
 };
 

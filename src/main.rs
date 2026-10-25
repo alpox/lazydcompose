@@ -16,18 +16,19 @@ pub mod app;
 pub mod app_mode;
 pub mod bindings;
 pub mod cli;
+pub mod data;
 pub mod effect;
 pub mod event;
-pub mod inspect;
+pub mod events;
 pub mod log;
 pub mod model;
 pub mod panels;
 pub mod settings;
-pub mod sub_manager;
 pub mod subs;
-pub mod tea;
+pub mod system;
 pub mod ui;
 pub mod util;
+pub mod view;
 
 fn read_settings() -> color_eyre::Result<Settings> {
     let mut dir = config_local_dir().ok_or_eyre("No configuration directory found")?;
