@@ -1,32 +1,5 @@
-use std::fmt::Display;
-
 use color_eyre::eyre::OptionExt;
-use crossterm::event::KeyEvent;
 use tokio::sync::mpsc;
-
-use crate::{
-    data::compose::Project,
-    system,
-    util::ResultExt,
-};
-
-/// Application events.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub enum Message {
-    Tick,
-    ClearNotes,
-    KeyPress(KeyEvent),
-    Resize,
-    Projects(Result<Vec<Project>, String>),
-    ActionResult(Result<String, String>),
-    Event(system::Message),
-}
-
-impl<Err: Display> From<Result<String, Err>> for Message {
-    fn from(value: Result<String, Err>) -> Self {
-        Message::ActionResult(value.stringify_err())
-    }
-}
 
 /// Terminal event handler.
 #[derive(Debug)]

@@ -5,16 +5,11 @@ use std::{
         atomic::{AtomicBool, Ordering},
     },
     thread::sleep,
-    time::Duration,
+    time::{Duration, Instant},
 };
 
 use crate::{
-    app_mode::{AppMode, AppModeManager},
-    effect::Task,
-    event::{EventHandler, Message},
-    model::{Model, RunningState},
-    sub_manager::SubscriptionManager,
-    tea::{self},
+    app_mode::{AppMode, AppModeManager}, effect::Task, event::EventHandler, events::{bindings::PressKey, general::Resize}, model::{Model, RunningState}, sub_manager::SubscriptionManager, system::{Ctx, Message}, tea::{self},
 };
 use crossterm::{
     cursor::Show,
@@ -82,7 +77,10 @@ impl App {
     }
 
     fn handle_message(&mut self, msg: Message) -> color_eyre::Result<bool> {
-        let effect = tea::update(&mut self.model, msg);
+        let effect = msg.handle(&mut Ctx {
+            db: &mut self.model,
+            now: Instant::now(),
+        });
 
         if let Some(blocking_fut) = effect.process(self.events.sender()) {
             return self.run_blocking(blocking_fut);
@@ -173,10 +171,10 @@ impl App {
                         Some(Ok(evt)) = async { reader.next().await } => {
                             match evt {
                                 crossterm::event::Event::Key(key) => {
-                                    let _ = sender.send(Message::KeyPress(key));
+                                    let _ = sender.send(PressKey { key }.into());
                                 },
                                 crossterm::event::Event::Resize(_, _) => {
-                                    let _ = sender.send(Message::Resize);
+                                    let _ = sender.send(Resize.into());
                                 }
                                 _ => {}
                             }

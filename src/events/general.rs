@@ -1,11 +1,7 @@
-use crossterm::event::KeyEvent;
-
 use crate::{
     effect::Effect,
-    event::{self},
     model::RunningState,
     system::{Ctx, Handler, Message},
-    tea,
 };
 
 #[derive(Clone, Debug, PartialEq)]
@@ -49,26 +45,26 @@ impl Handler for Tick {
 }
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct Compat {
-    pub message: event::Message,
-}
+pub struct ClearNotes;
 
-impl Handler for Compat {
+impl Handler for ClearNotes {
     fn handle(self, ctx: &mut Ctx) -> Effect<Message> {
-        tea::update(ctx.db, self.message).map(Message::from)
-    }
-}
-
-impl From<event::Message> for Message {
-    fn from(message: event::Message) -> Self {
-        match message {
-            event::Message::Event(event) => event,
-            message => Compat { message }.into(),
-        }
+        ctx.db.notes = ctx
+            .db
+            .notes
+            .iter()
+            .filter(|note| !note.finished())
+            .cloned()
+            .collect();
+        Effect::None
     }
 }
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct KeyPress {
-    key: KeyEvent,
+pub struct Resize;
+
+impl Handler for Resize {
+    fn handle(self, _ctx: &mut Ctx) -> Effect<Message> {
+        Effect::None
+    }
 }

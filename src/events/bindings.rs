@@ -5,14 +5,13 @@ use crossterm::event::KeyEvent;
 use crate::{
     bindings::bindings,
     effect::Effect,
-    event,
     model::Overlay,
     system::{Ctx, Handler, Message},
 };
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct PressKey {
-    key: KeyEvent,
+    pub key: KeyEvent,
 }
 
 impl Handler for PressKey {
@@ -90,7 +89,7 @@ impl Handler for SelectBinding {
         }
 
         match binding.keys.first() {
-            Some(key) => Effect::Dispatch(event::Message::KeyPress(key.into()).into()),
+            Some(key) => Effect::Dispatch(PressKey { key: key.into() }.into()),
             None => Effect::None,
         }
     }
