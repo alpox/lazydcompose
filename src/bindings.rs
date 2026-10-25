@@ -123,7 +123,7 @@ impl fmt::Display for Key {
 }
 
 #[derive(Copy, Serialize, Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
-pub enum KeyAction {
+pub enum BindingId {
     Quit,
     MoveUp,
     MoveDown,
@@ -199,7 +199,7 @@ impl BindingContext {
 pub struct Binding {
     pub keys: Vec<Key>,
     pub description: &'static str,
-    pub action: KeyAction,
+    pub binding_id: BindingId,
     pub event: Option<fn(&Model) -> Option<Message>>,
     pub condition: Condition,
 }
@@ -237,35 +237,35 @@ impl Default for KeyBindings {
                 Binding {
                     keys: vec![KeyCode::Char('?').into()],
                     description: "Show keybindings",
-                    action: KeyAction::ShowBindings,
+                    binding_id: BindingId::ShowBindings,
                     event: Some(|_| Some(ShowBindings.into())),
                     condition: Condition::Global,
                 },
                 Binding {
                     keys: vec![KeyCode::Char('k').into(), KeyCode::Up.into()],
                     description: "Select previous binding",
-                    action: KeyAction::MoveUp,
+                    binding_id: BindingId::MoveUp,
                     event: Some(|_| Some(SelectPreviousBinding.into())),
                     condition: Condition::OverlayContext(OverlayContextId::BindingsPopup),
                 },
                 Binding {
                     keys: vec![KeyCode::Char('j').into(), KeyCode::Down.into()],
                     description: "Select next binding",
-                    action: KeyAction::MoveDown,
+                    binding_id: BindingId::MoveDown,
                     event: Some(|_| Some(SelectNextBinding.into())),
                     condition: Condition::OverlayContext(OverlayContextId::BindingsPopup),
                 },
                 Binding {
                     keys: vec![KeyCode::Enter.into()],
                     description: "Select binding",
-                    action: KeyAction::Select,
+                    binding_id: BindingId::Select,
                     event: Some(|_| Some(SelectBinding.into())),
                     condition: Condition::OverlayContext(OverlayContextId::BindingsPopup),
                 },
                 Binding {
                     keys: vec![KeyCode::Char('q').into(), KeyCode::Esc.into()],
                     description: "Close bindings popup",
-                    action: KeyAction::Quit,
+                    binding_id: BindingId::Quit,
                     event: Some(|_| Some(CloseBindings.into())),
                     condition: Condition::OverlayContext(OverlayContextId::BindingsPopup),
                 },
@@ -273,14 +273,14 @@ impl Default for KeyBindings {
                 Binding {
                     keys: vec![KeyCode::Enter.into()],
                     description: "Select binding",
-                    action: KeyAction::Select,
+                    binding_id: BindingId::Select,
                     event: Some(|_| Some(ConfirmPrompt.into())),
                     condition: Condition::OverlayContext(OverlayContextId::Prompt),
                 },
                 Binding {
                     keys: vec![KeyCode::Char('q').into(), KeyCode::Esc.into()],
                     description: "Close bindings popup",
-                    action: KeyAction::Quit,
+                    binding_id: BindingId::Quit,
                     event: Some(|_| Some(ClosePrompt.into())),
                     condition: Condition::OverlayContext(OverlayContextId::Prompt),
                 },
@@ -292,7 +292,7 @@ impl Default for KeyBindings {
                         Key::new(KeyCode::Char('C'), KeyModifiers::CONTROL),
                     ],
                     description: "Quit application",
-                    action: KeyAction::Quit,
+                    binding_id: BindingId::Quit,
                     event: Some(|_| Some(QuitEvent.into())),
                     condition: Condition::Global,
                 },
@@ -300,7 +300,7 @@ impl Default for KeyBindings {
                 Binding {
                     keys: vec![KeyCode::Char('i').into()],
                     description: "Show info",
-                    action: KeyAction::Info,
+                    binding_id: BindingId::Info,
                     event: Some(|model| {
                         Some(
                             ShowInfo {
@@ -314,42 +314,42 @@ impl Default for KeyBindings {
                 Binding {
                     keys: vec![KeyCode::Esc.into()],
                     description: "Quit info view",
-                    action: KeyAction::QuitInfo,
+                    binding_id: BindingId::QuitInfo,
                     event: Some(|_| Some(QuitInfo.into())),
                     condition: Condition::View(ViewId::Info),
                 },
                 Binding {
                     keys: vec![KeyCode::PageDown.into()],
                     description: "Scroll down",
-                    action: KeyAction::ScrollDown,
+                    binding_id: BindingId::ScrollDown,
                     event: Some(|_| Some(ScrollDownInfo.into())),
                     condition: Condition::View(ViewId::Info),
                 },
                 Binding {
                     keys: vec![KeyCode::PageUp.into()],
                     description: "Scroll up",
-                    action: KeyAction::ScrollUp,
+                    binding_id: BindingId::ScrollUp,
                     event: Some(|_| Some(ScrollUpInfo.into())),
                     condition: Condition::View(ViewId::Info),
                 },
                 Binding {
                     keys: vec![KeyCode::Char('k').into(), KeyCode::Up.into()],
                     description: "Move selection up",
-                    action: KeyAction::MoveUp,
+                    binding_id: BindingId::MoveUp,
                     event: Some(|_| Some(SelectPrevProject.into())),
                     condition: Condition::Panel(ContextId::Projects),
                 },
                 Binding {
                     keys: vec![KeyCode::Char('j').into(), KeyCode::Down.into()],
                     description: "Move selection down",
-                    action: KeyAction::MoveDown,
+                    binding_id: BindingId::MoveDown,
                     event: Some(|_| Some(SelectNextProject.into())),
                     condition: Condition::Panel(ContextId::Projects),
                 },
                 Binding {
                     keys: vec![KeyCode::Enter.into()],
                     description: "Select",
-                    action: KeyAction::Select,
+                    binding_id: BindingId::Select,
                     event: Some(|model| {
                         Some(SelectProject(model.selected_project()?.clone()).into())
                     }),
@@ -359,7 +359,7 @@ impl Default for KeyBindings {
                 Binding {
                     keys: vec![KeyCode::Char('u').into()],
                     description: "Docker compose up",
-                    action: KeyAction::DockerComposeUp,
+                    binding_id: BindingId::DockerComposeUp,
                     event: Some(|model| {
                         Some(DockerComposeUp(model.selected_project()?.clone()).into())
                     }),
@@ -371,7 +371,7 @@ impl Default for KeyBindings {
                 Binding {
                     keys: vec![KeyCode::Char('d').into()],
                     description: "Docker compose down",
-                    action: KeyAction::DockerComposeDown,
+                    binding_id: BindingId::DockerComposeDown,
                     event: Some(|model| {
                         Some(DockerComposeDown(model.selected_project()?.clone()).into())
                     }),
@@ -383,7 +383,7 @@ impl Default for KeyBindings {
                 Binding {
                     keys: vec![KeyCode::Char('s').into()],
                     description: "Docker compose start",
-                    action: KeyAction::DockerComposeStart,
+                    binding_id: BindingId::DockerComposeStart,
                     event: Some(|model| {
                         Some(DockerComposeStart(model.selected_project()?.clone()).into())
                     }),
@@ -395,7 +395,7 @@ impl Default for KeyBindings {
                 Binding {
                     keys: vec![KeyCode::Char('S').into()],
                     description: "Docker compose stop",
-                    action: KeyAction::DockerComposeStop,
+                    binding_id: BindingId::DockerComposeStop,
                     event: Some(|model| {
                         Some(DockerComposeStop(model.selected_project()?.clone()).into())
                     }),
@@ -407,7 +407,7 @@ impl Default for KeyBindings {
                 Binding {
                     keys: vec![KeyCode::Char('r').into()],
                     description: "Docker compose restart",
-                    action: KeyAction::DockerComposeRestart,
+                    binding_id: BindingId::DockerComposeRestart,
                     event: Some(|model| {
                         Some(DockerComposeRestart(model.selected_project()?.clone()).into())
                     }),
@@ -420,21 +420,21 @@ impl Default for KeyBindings {
                 Binding {
                     keys: vec![KeyCode::Char('k').into(), KeyCode::Up.into()],
                     description: "Move selection up",
-                    action: KeyAction::MoveUp,
+                    binding_id: BindingId::MoveUp,
                     event: Some(|_| Some(SelectPrevContainer.into())),
                     condition: Condition::Panel(ContextId::Containers),
                 },
                 Binding {
                     keys: vec![KeyCode::Char('j').into(), KeyCode::Down.into()],
                     description: "Move selection down",
-                    action: KeyAction::MoveDown,
+                    binding_id: BindingId::MoveDown,
                     event: Some(|_| Some(SelectNextContainer.into())),
                     condition: Condition::Panel(ContextId::Containers),
                 },
                 Binding {
                     keys: vec![KeyCode::Esc.into()],
                     description: "Deselect",
-                    action: KeyAction::Deselect,
+                    binding_id: BindingId::Deselect,
                     event: Some(|_| Some(DeselectProject.into())),
                     condition: Condition::Panel(ContextId::Containers),
                 },
@@ -442,7 +442,7 @@ impl Default for KeyBindings {
                 Binding {
                     keys: vec![KeyCode::Char('s').into()],
                     description: "Docker container start",
-                    action: KeyAction::DockerContainerStart,
+                    binding_id: BindingId::DockerContainerStart,
                     event: Some(|model| {
                         Some(
                             DockerContainerStart {
@@ -457,7 +457,7 @@ impl Default for KeyBindings {
                 Binding {
                     keys: vec![KeyCode::Char('S').into()],
                     description: "Docker container stop",
-                    action: KeyAction::DockerContainerStop,
+                    binding_id: BindingId::DockerContainerStop,
                     event: Some(|model| {
                         Some(
                             DockerContainerStop {
@@ -472,7 +472,7 @@ impl Default for KeyBindings {
                 Binding {
                     keys: vec![KeyCode::Char('r').into()],
                     description: "Docker container restart",
-                    action: KeyAction::DockerContainerRestart,
+                    binding_id: BindingId::DockerContainerRestart,
                     event: Some(|model| {
                         Some(
                             DockerContainerRestart {
@@ -487,7 +487,7 @@ impl Default for KeyBindings {
                 Binding {
                     keys: vec![KeyCode::Char('m').into()],
                     description: "Docker follow logs",
-                    action: KeyAction::DockerFollowLogs,
+                    binding_id: BindingId::DockerFollowLogs,
                     event: Some(|model| {
                         Some(
                             DockerContainerFollowLogs {
@@ -502,7 +502,7 @@ impl Default for KeyBindings {
                 Binding {
                     keys: vec![KeyCode::Char('E').into()],
                     description: "Docker console",
-                    action: KeyAction::DockerConsole,
+                    binding_id: BindingId::DockerConsole,
                     event: Some(|model| {
                         Some(
                             DockerContainerConsole {
@@ -533,9 +533,9 @@ impl KeyBindings {
         })
     }
 
-    pub fn resolve(&self, key: &KeyEvent, model: &Model) -> Option<KeyAction> {
+    pub fn resolve(&self, key: &KeyEvent, model: &Model) -> Option<BindingId> {
         self.find_matching_binding(key, model)
-            .map(|binding| binding.action)
+            .map(|binding| binding.binding_id)
     }
 
     pub fn resolve_event(&self, key: &KeyEvent, model: &Model) -> Option<Message> {
@@ -570,7 +570,7 @@ impl KeyBindings {
         };
 
         for binding in &mut self.map {
-            if let Some(keys) = keybinds.get(&binding.action) {
+            if let Some(keys) = keybinds.get(&binding.binding_id) {
                 binding.keys = keys.clone();
             }
         }

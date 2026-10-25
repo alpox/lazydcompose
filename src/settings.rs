@@ -6,7 +6,7 @@ use serde::{
     de::{self, Visitor},
 };
 
-use crate::bindings::{Key, KeyAction};
+use crate::bindings::{BindingId, Key};
 
 impl<'de> Deserialize<'de> for Key {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
@@ -94,5 +94,5 @@ fn parse_key_code(s: &str) -> Option<KeyCode> {
 #[derive(Clone, Serialize, Deserialize, PartialEq, Eq, Debug)]
 #[serde(rename_all = "snake_case")]
 pub struct Settings {
-    pub keybindings: Option<HashMap<KeyAction, Vec<Key>>>,
+    pub keybindings: Option<HashMap<BindingId, Vec<Key>>>,
 }

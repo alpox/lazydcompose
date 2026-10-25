@@ -6,14 +6,14 @@ use ratatui::{
     widgets::{Block, Borders, Cell, Clear, Paragraph, Row, Table, Widget},
 };
 
-use crate::bindings::{Key, KeyAction};
+use crate::bindings::{Key, BindingId};
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Action {
     pub keys: Vec<Key>,
     pub display: &'static str,
     pub description: &'static str,
-    pub action: KeyAction,
+    pub action: BindingId,
 }
 
 pub struct ActionList<'a> {
