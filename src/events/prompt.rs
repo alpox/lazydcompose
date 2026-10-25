@@ -27,7 +27,7 @@ pub struct ConfirmPrompt;
 impl Handler for ConfirmPrompt {
     fn handle(self, ctx: &mut Ctx) -> Effect<Message> {
         match ctx.db.take_prompt() {
-            Some(prompt) => prompt.then.map(|msg| msg.into()),
+            Some(prompt) => prompt.then.map(|msg| msg),
             None => Effect::None,
         }
     }

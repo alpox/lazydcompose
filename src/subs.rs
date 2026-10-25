@@ -4,7 +4,10 @@ use futures::{
     Stream, StreamExt,
     stream::{self, select_all},
 };
-use tokio_stream::wrappers::IntervalStream;
+use tokio_stream::{
+    StreamMap,
+    wrappers::{IntervalStream, ReceiverStream},
+};
 
 use std::sync::Arc;
 
@@ -12,7 +15,6 @@ use tokio::sync::{
     Mutex,
     mpsc::{self, UnboundedReceiver, UnboundedSender, unbounded_channel},
 };
-use tokio_stream::{StreamMap, wrappers::ReceiverStream};
 
 pub type MsgStream<Msg> = Pin<Box<dyn Stream<Item = Msg> + Send>>;
 
