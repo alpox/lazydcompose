@@ -72,8 +72,7 @@ impl CliCommand {
         let status = status?;
 
         let was_interrupted = interrupted.load(Ordering::Relaxed)
-            || status.signal() == Some(SIGINT)
-            || status.code() == Some(130);
+            || status.signal() == Some(SIGINT);
 
         if !was_interrupted {
             println!(
