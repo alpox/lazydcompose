@@ -5,7 +5,7 @@ use itertools::Itertools;
 use ratatui::style::Style;
 use tokio::time::Instant;
 
-use crate::data::compose::{Container, Project, State};
+use crate::data::compose::{Container, Project};
 use crate::data::inspect::ContainerInspect;
 use crate::system::Message;
 use crate::{effect::Effect, util::wrap_around_optional};

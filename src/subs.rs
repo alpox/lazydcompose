@@ -53,4 +53,12 @@ impl<Msg> Subscription<Msg> {
             }
         }
     }
+
+    pub fn leaves(self) -> Vec<Subscription<Msg>> {
+        match self {
+            Subscription::None => vec![],
+            Subscription::Batch(subs) => subs.into_iter().flat_map(Subscription::leaves).collect(),
+            leaf => vec![leaf],
+        }
+    }
 }

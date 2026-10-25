@@ -5,15 +5,15 @@ use tokio::sync::{
     Mutex,
     mpsc::{self, UnboundedReceiver, UnboundedSender, unbounded_channel},
 };
-use tokio_stream::wrappers::ReceiverStream;
+use tokio_stream::{StreamMap, wrappers::ReceiverStream};
 
 use crate::subs::Subscription;
 
 type MsgStream<Msg> = Pin<Box<dyn Stream<Item = Msg> + Send>>;
 
 pub struct SubscriptionManager<Msg: Send> {
-    stream_sender: UnboundedSender<MsgStream<Msg>>,
-    stream_receiver: Arc<Mutex<UnboundedReceiver<MsgStream<Msg>>>>,
+    subs_sender: UnboundedSender<Vec<Subscription<Msg>>>,
+    subs_receiver: Arc<Mutex<UnboundedReceiver<Vec<Subscription<Msg>>>>>,
     current_sub: Subscription<Msg>,
 }
 
@@ -22,11 +22,11 @@ where
     Msg: PartialEq + Clone + Send,
 {
     fn default() -> Self {
-        let (stream_sender, stream_receiver) = unbounded_channel::<MsgStream<Msg>>();
+        let (subs_sender, subs_receiver) = unbounded_channel::<Vec<Subscription<Msg>>>();
 
         Self {
-            stream_sender,
-            stream_receiver: Arc::new(Mutex::new(stream_receiver)),
+            subs_sender,
+            subs_receiver: Arc::new(Mutex::new(subs_receiver)),
             current_sub: Subscription::None,
         }
     }
@@ -42,28 +42,43 @@ where
 
     pub fn stream(&self) -> MsgStream<Msg> {
         let (sender, receiver) = mpsc::channel::<Msg>(1);
-        let stream_receiver = self.stream_receiver.clone();
+        let subs_receiver = self.subs_receiver.clone();
 
         tokio::spawn(async move {
-            let mut current_stream: Option<MsgStream<Msg>> = None;
-            let mut locked_stream_receiver = stream_receiver.lock().await;
+            let mut subs_receiver = subs_receiver.lock().await;
+            let mut running: Vec<(usize, Subscription<Msg>)> = Vec::new();
+            let mut streams = StreamMap::new();
+            let mut next_id = 0;
 
             loop {
                 tokio::select! {
-                    Some(new_stream) = locked_stream_receiver.recv() => {
-                        current_stream = Some(new_stream)
+                    Some(subs) = subs_receiver.recv() => {
+                        running.retain(|(id, sub)| {
+                            let keep = subs.contains(sub);
+                            if !keep {
+                                streams.remove(id);
+                            }
+
+                            keep
+                        });
+
+                        for sub in subs {
+                            if running.iter().any(|(_, running_sub)| *running_sub == sub) {
+                                continue;
+                            }
+                            streams.insert(next_id, sub.build_stream());
+                            running.push((next_id, sub));
+                            next_id += 1;
+                        }
                     }
 
-                    Some(msg) = async {
-                        match &mut current_stream {
-                            Some(stream) => stream.next().await,
-                            None => std::future::pending().await
-                        }
-                    } => {
+                    Some((_, msg)) = streams.next(), if !streams.is_empty() => {
                         if sender.send(msg).await.is_err() {
-                            break
+                            break;
                         }
                     }
+
+                    else => break
                 }
             }
         });
@@ -73,8 +88,7 @@ where
 
     pub fn update(&mut self, sub: Subscription<Msg>) {
         if self.current_sub != sub {
-            let stream = sub.build_stream();
-            let _ = self.stream_sender.send(stream);
+            let _ = self.subs_sender.send(sub.clone().leaves());
             self.current_sub = sub;
         }
     }
