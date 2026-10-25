@@ -28,7 +28,7 @@ pub fn subscriptions(model: &Model) -> Subscription<Message> {
         subscriptions.push(Subscription::Interval(
             Duration::from_secs(1),
             RefreshProjectInfo {
-                project_name: project.name,
+                project_name: project.name.clone(),
             }
             .into(),
         ))

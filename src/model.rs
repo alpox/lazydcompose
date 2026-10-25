@@ -138,7 +138,7 @@ pub struct Model {
     // Application data
     pub running_state: RunningState,
     pub projects: Vec<Project>,
-    pub pending_operations: HashMap<ResourceId, PendingOperation>,
+    pub pending_operations: HashMap<ResourceId, (PendingOperation, usize)>,
 
     pub overlay: Option<Overlay>,
 
@@ -184,26 +184,15 @@ impl Default for Model {
 }
 
 impl Model {
-    pub fn selected_project(&self) -> Option<Project> {
-        self.active_project_index
-            .and_then(|index| self.projects.get(index))
-            .cloned()
+    pub fn selected_project(&self) -> Option<&Project> {
+        self.projects.get(self.active_project_index?)
     }
 
-    pub fn selected_project_containers(&self) -> Option<Vec<Container>> {
-        Some(self.selected_project()?.containers)
-    }
-
-    pub fn selected_container(&self) -> Option<Container> {
-        let containers: Vec<_> = self
-            .projects
+    pub fn selected_container(&self) -> Option<&Container> {
+        self.projects
             .iter()
-            .flat_map(|project| project.containers.clone())
-            .collect();
-
-        self.active_container_index
-            .and_then(|index| containers.get(index))
-            .cloned()
+            .flat_map(|project| &project.containers)
+            .nth(self.active_container_index?)
     }
 
     pub fn num_containers(&self) -> usize {
@@ -292,21 +281,22 @@ impl Model {
     }
 
     pub fn init_pending_action(&mut self, resource_id: ResourceId, op: PendingOperation) {
-        self.pending_operations.insert(resource_id, op);
+        let count = self
+            .pending_operations
+            .get(&resource_id)
+            .map_or(0, |(_, count)| *count);
+
+        self.pending_operations.insert(resource_id, (op, count + 1));
     }
 
     pub fn stop_pending_action(&mut self, resource_id: &ResourceId) {
-        self.pending_operations.remove(resource_id);
-    }
+        if let Some((_, count)) = self.pending_operations.get_mut(resource_id) {
+            *count -= 1;
 
-    pub fn container_by_id(&self, id: &str) -> Option<Container> {
-        self.projects.iter().find_map(|project| {
-            project
-                .containers
-                .iter()
-                .find(|container| container.id == id)
-                .cloned()
-        })
+            if *count == 0 {
+                self.pending_operations.remove(resource_id);
+            }
+        }
     }
 
     pub fn has_pending_action(&self, resource_id: &ResourceId) -> bool {

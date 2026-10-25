@@ -304,7 +304,7 @@ impl Default for KeyBindings {
                     event: Some(|model| {
                         Some(
                             ShowInfo {
-                                project_name: model.selected_project()?.name,
+                                project_name: model.selected_project()?.name.clone(),
                             }
                             .into(),
                         )
@@ -350,7 +350,9 @@ impl Default for KeyBindings {
                     keys: vec![KeyCode::Enter.into()],
                     description: "Select",
                     action: KeyAction::Select,
-                    event: Some(|model| Some(SelectProject(model.selected_project()?).into())),
+                    event: Some(|model| {
+                        Some(SelectProject(model.selected_project()?.clone()).into())
+                    }),
                     condition: Condition::Panel(ContextId::Projects),
                 },
                 // Projects panel - compose actions
@@ -358,7 +360,9 @@ impl Default for KeyBindings {
                     keys: vec![KeyCode::Char('u').into()],
                     description: "Docker compose up",
                     action: KeyAction::DockerComposeUp,
-                    event: Some(|model| Some(DockerComposeUp(model.selected_project()?).into())),
+                    event: Some(|model| {
+                        Some(DockerComposeUp(model.selected_project()?.clone()).into())
+                    }),
                     condition: Condition::All(vec![
                         Condition::Panel(ContextId::Projects),
                         Condition::ComposeProject,
@@ -368,7 +372,9 @@ impl Default for KeyBindings {
                     keys: vec![KeyCode::Char('d').into()],
                     description: "Docker compose down",
                     action: KeyAction::DockerComposeDown,
-                    event: Some(|model| Some(DockerComposeDown(model.selected_project()?).into())),
+                    event: Some(|model| {
+                        Some(DockerComposeDown(model.selected_project()?.clone()).into())
+                    }),
                     condition: Condition::All(vec![
                         Condition::Panel(ContextId::Projects),
                         Condition::ComposeProject,
@@ -378,7 +384,9 @@ impl Default for KeyBindings {
                     keys: vec![KeyCode::Char('s').into()],
                     description: "Docker compose start",
                     action: KeyAction::DockerComposeStart,
-                    event: Some(|model| Some(DockerComposeStart(model.selected_project()?).into())),
+                    event: Some(|model| {
+                        Some(DockerComposeStart(model.selected_project()?.clone()).into())
+                    }),
                     condition: Condition::All(vec![
                         Condition::Panel(ContextId::Projects),
                         Condition::ComposeProject,
@@ -388,7 +396,9 @@ impl Default for KeyBindings {
                     keys: vec![KeyCode::Char('S').into()],
                     description: "Docker compose stop",
                     action: KeyAction::DockerComposeStop,
-                    event: Some(|model| Some(DockerComposeStop(model.selected_project()?).into())),
+                    event: Some(|model| {
+                        Some(DockerComposeStop(model.selected_project()?.clone()).into())
+                    }),
                     condition: Condition::All(vec![
                         Condition::Panel(ContextId::Projects),
                         Condition::ComposeProject,
@@ -399,7 +409,7 @@ impl Default for KeyBindings {
                     description: "Docker compose restart",
                     action: KeyAction::DockerComposeRestart,
                     event: Some(|model| {
-                        Some(DockerComposeRestart(model.selected_project()?).into())
+                        Some(DockerComposeRestart(model.selected_project()?.clone()).into())
                     }),
                     condition: Condition::All(vec![
                         Condition::Panel(ContextId::Projects),
@@ -436,8 +446,8 @@ impl Default for KeyBindings {
                     event: Some(|model| {
                         Some(
                             DockerContainerStart {
-                                project: model.selected_project()?,
-                                container: model.selected_container()?,
+                                project: model.selected_project()?.clone(),
+                                container: model.selected_container()?.clone(),
                             }
                             .into(),
                         )
@@ -451,8 +461,8 @@ impl Default for KeyBindings {
                     event: Some(|model| {
                         Some(
                             DockerContainerStop {
-                                project: model.selected_project()?,
-                                container: model.selected_container()?,
+                                project: model.selected_project()?.clone(),
+                                container: model.selected_container()?.clone(),
                             }
                             .into(),
                         )
@@ -466,8 +476,8 @@ impl Default for KeyBindings {
                     event: Some(|model| {
                         Some(
                             DockerContainerRestart {
-                                project: model.selected_project()?,
-                                container: model.selected_container()?,
+                                project: model.selected_project()?.clone(),
+                                container: model.selected_container()?.clone(),
                             }
                             .into(),
                         )
@@ -481,8 +491,8 @@ impl Default for KeyBindings {
                     event: Some(|model| {
                         Some(
                             DockerContainerFollowLogs {
-                                project: model.selected_project()?,
-                                container: model.selected_container()?,
+                                project: model.selected_project()?.clone(),
+                                container: model.selected_container()?.clone(),
                             }
                             .into(),
                         )
@@ -496,8 +506,8 @@ impl Default for KeyBindings {
                     event: Some(|model| {
                         Some(
                             DockerContainerConsole {
-                                project: model.selected_project()?,
-                                container: model.selected_container()?,
+                                project: model.selected_project()?.clone(),
+                                container: model.selected_container()?.clone(),
                             }
                             .into(),
                         )
