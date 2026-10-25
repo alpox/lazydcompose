@@ -1,4 +1,3 @@
-pub mod action_list;
 pub mod bindings;
 pub mod colors;
 pub mod notes;

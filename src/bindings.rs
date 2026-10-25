@@ -135,19 +135,15 @@ pub enum BindingId {
     DockerContainerStart,
     DockerContainerStop,
     DockerContainerRestart,
-    DockerFollowLogs,
-    DockerConsole,
+    DockerContainerFollowLogs,
+    DockerContainerConsole,
     ShowBindings,
-    ClosePopup,
     Select,
-    Deselect,
-    ChooseAction,
-    NextBinding,
-    PreviousBinding,
-    Info,
+    DeselectProject,
+    ShowInfo,
     QuitInfo,
-    ScrollUp,
-    ScrollDown,
+    ScrollUpInfo,
+    ScrollDownInfo,
 }
 
 pub struct BindingContext {
@@ -300,7 +296,7 @@ impl Default for KeyBindings {
                 Binding {
                     keys: vec![KeyCode::Char('i').into()],
                     description: "Show info",
-                    binding_id: BindingId::Info,
+                    binding_id: BindingId::ShowInfo,
                     event: Some(|model| {
                         Some(
                             ShowInfo {
@@ -321,14 +317,14 @@ impl Default for KeyBindings {
                 Binding {
                     keys: vec![KeyCode::PageDown.into()],
                     description: "Scroll down",
-                    binding_id: BindingId::ScrollDown,
+                    binding_id: BindingId::ScrollDownInfo,
                     event: Some(|_| Some(ScrollDownInfo.into())),
                     condition: Condition::View(ViewId::Info),
                 },
                 Binding {
                     keys: vec![KeyCode::PageUp.into()],
                     description: "Scroll up",
-                    binding_id: BindingId::ScrollUp,
+                    binding_id: BindingId::ScrollUpInfo,
                     event: Some(|_| Some(ScrollUpInfo.into())),
                     condition: Condition::View(ViewId::Info),
                 },
@@ -434,7 +430,7 @@ impl Default for KeyBindings {
                 Binding {
                     keys: vec![KeyCode::Esc.into()],
                     description: "Deselect",
-                    binding_id: BindingId::Deselect,
+                    binding_id: BindingId::DeselectProject,
                     event: Some(|_| Some(DeselectProject.into())),
                     condition: Condition::Panel(ContextId::Containers),
                 },
@@ -487,7 +483,7 @@ impl Default for KeyBindings {
                 Binding {
                     keys: vec![KeyCode::Char('m').into()],
                     description: "Docker follow logs",
-                    binding_id: BindingId::DockerFollowLogs,
+                    binding_id: BindingId::DockerContainerFollowLogs,
                     event: Some(|model| {
                         Some(
                             DockerContainerFollowLogs {
@@ -502,7 +498,7 @@ impl Default for KeyBindings {
                 Binding {
                     keys: vec![KeyCode::Char('E').into()],
                     description: "Docker console",
-                    binding_id: BindingId::DockerConsole,
+                    binding_id: BindingId::DockerContainerConsole,
                     event: Some(|model| {
                         Some(
                             DockerContainerConsole {
@@ -531,11 +527,6 @@ impl KeyBindings {
 
             key_matches && binding_context.satisfies(&binding.condition)
         })
-    }
-
-    pub fn resolve(&self, key: &KeyEvent, model: &Model) -> Option<BindingId> {
-        self.find_matching_binding(key, model)
-            .map(|binding| binding.binding_id)
     }
 
     pub fn resolve_event(&self, key: &KeyEvent, model: &Model) -> Option<Message> {
