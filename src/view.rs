@@ -31,7 +31,7 @@ fn layout(area: Rect) -> AppLayout {
     AppLayout { main, hints }
 }
 
-pub fn view(model: &mut Model, frame: &mut Frame) {
+pub fn render(model: &mut Model, frame: &mut Frame) {
     let layout = layout(frame.area());
 
     match model.active_view {

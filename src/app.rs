@@ -58,7 +58,7 @@ impl App {
         self.process_subscriptions();
         self.process_keyboard_events();
 
-        let _ = terminal.draw(|frame| view::view(&mut self.model, frame));
+        let _ = terminal.draw(|frame| view::render(&mut self.model, frame));
 
         while self.model.running_state != RunningState::Done {
             if self.sigint_flag.swap(false, Ordering::Relaxed) {
@@ -70,7 +70,7 @@ impl App {
                 terminal.clear()?;
             }
 
-            let _ = terminal.draw(|frame| view::view(&mut self.model, frame));
+            let _ = terminal.draw(|frame| view::render(&mut self.model, frame));
         }
 
         Ok(())
